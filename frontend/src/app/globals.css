@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --accent: #2563eb;
+}
+
+body {
+  font-family: 'PingFang SC', 'Noto Sans SC', Inter, system-ui, sans-serif;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Gemini-style smooth scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
