@@ -3,7 +3,7 @@
  */
 
 const { chatCompletion } = require('./ai');
-const { RENDER_PAGE_SYSTEM } = require('../prompts/render');
+const { RENDER_PAGE_SYSTEM, RENDER_MODIFY_SYSTEM } = require('../prompts/render');
 
 /**
  * 渲染单页 HTML
@@ -90,4 +90,24 @@ function extractHTML(text) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:0;padding:40px;font-family:"PingFang SC",sans-serif;background:#1a1a2e;color:#fff;}</style></head><body>${cleaned}</body></html>`;
 }
 
-module.exports = { renderPage, renderAllPages };
+module.exports = { renderPage, renderAllPages, modifyPage };
+
+/**
+ * 修改已渲染的页面
+ */
+async function modifyPage(session, pageNumber, instruction) {
+  const existing = (session.renderedPages || []).find(p => p.page_number === pageNumber);
+  if (!existing) throw new Error(`第 ${pageNumber} 页尚未渲染`);
+
+  const result = await chatCompletion([
+    { role: 'system', content: RENDER_MODIFY_SYSTEM },
+    {
+      role: 'user',
+      content: `当前页面 HTML：\n${existing.html}\n\n用户修改要求：${instruction}`,
+    },
+  ], { temperature: 0.6, maxTokens: 4000 });
+
+  const html = extractHTML(result);
+  existing.html = html;
+  return html;
+}

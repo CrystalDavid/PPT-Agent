@@ -5,7 +5,7 @@ const { createSession, getSession } = require('../services/session');
 const { handleInterviewMessage } = require('../services/interview');
 const { generateOutline, refineOutline } = require('../services/outline');
 const { generatePlanning, refinePlanningPage } = require('../services/planning');
-const { renderPage, renderAllPages } = require('../services/render');
+const { renderPage, renderAllPages, modifyPage } = require('../services/render');
 const { exportPptx, exportHtmlBundle } = require('../services/export');
 
 // ============================================================
@@ -188,6 +188,21 @@ router.post('/render/page', async (req, res) => {
     res.json({ sessionId: session.id, pageNumber, html });
   } catch (err) {
     console.error('Render page error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 修改已渲染的页面
+router.post('/render/modify', async (req, res) => {
+  try {
+    const { sessionId, pageNumber, instruction } = req.body;
+    const session = getSession(sessionId);
+    if (!session) return res.status(404).json({ error: '会话不存在' });
+
+    const html = await modifyPage(session, pageNumber, instruction);
+    res.json({ sessionId: session.id, pageNumber, html });
+  } catch (err) {
+    console.error('Render modify error:', err);
     res.status(500).json({ error: err.message });
   }
 });

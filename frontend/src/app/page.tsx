@@ -317,7 +317,7 @@ export default function Home() {
 
           {/* 渲染/导出 */}
           <div className={(activePanel === 'render' || activePanel === 'export') ? 'p-6 h-full overflow-y-auto' : 'hidden'}>
-            <RenderPanel pages={renderedPages} isLoading={isLoading} isExporting={isExporting} onExportPptx={handleExportPptx} onExportHtml={handleExportHtml} onGoBack={() => setActivePanel('planning')} />
+            <RenderPanel pages={renderedPages} isLoading={isLoading} isExporting={isExporting} sessionId={sessionId} onPagesUpdate={setRenderedPages} onExportPptx={handleExportPptx} onExportHtml={handleExportHtml} onGoBack={() => setActivePanel('planning')} />
           </div>
         </div>
       </main>

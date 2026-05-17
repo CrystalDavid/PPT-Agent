@@ -167,6 +167,19 @@ export async function renderSinglePage(sessionId: string, pageNumber: number): P
   return res.json();
 }
 
+export async function modifyRenderedPage(sessionId: string, pageNumber: number, instruction: string): Promise<{ html: string }> {
+  const res = await fetch(`http://localhost:3001/api/workflow/render/modify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId, pageNumber, instruction }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: '请求失败' }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function exportPptx(sessionId: string): Promise<ExportResponse> {
   const res = await fetch(`http://localhost:3001/api/workflow/export/pptx`, {
     method: 'POST',
