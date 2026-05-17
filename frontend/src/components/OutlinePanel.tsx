@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Pencil, X } from 'lucide-react';
 
@@ -16,15 +16,6 @@ interface OutlinePanelProps {
 export default function OutlinePanel({ outline, isLoading, onGenerate, onRefine, onConfirm, onGoBack }: OutlinePanelProps) {
   const [editingTarget, setEditingTarget] = useState<string | null>(null); // null | 'all' | 'page-3'
   const [feedback, setFeedback] = useState('');
-  const generatedRef = useRef(false);
-
-  // 进入大纲页面时自动生成
-  useEffect(() => {
-    if (!outline && !isLoading && !generatedRef.current) {
-      generatedRef.current = true;
-      onGenerate();
-    }
-  }, [outline, isLoading]);
 
   // 正在生成
   if (!outline) {

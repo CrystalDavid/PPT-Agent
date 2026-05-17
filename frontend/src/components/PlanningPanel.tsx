@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Pencil, X } from 'lucide-react';
 
@@ -29,15 +29,6 @@ interface PlanningPanelProps {
 export default function PlanningPanel({ planning, isLoading, onGenerate, onRefinePage, onRefineAll, onConfirm, onGoBack }: PlanningPanelProps) {
   const [editingTarget, setEditingTarget] = useState<string | null>(null);
   const [feedback, setFeedback] = useState('');
-  const generatedRef = useRef(false);
-
-  // 自动生成
-  useEffect(() => {
-    if (!planning && !isLoading && !generatedRef.current) {
-      generatedRef.current = true;
-      onGenerate();
-    }
-  }, [planning, isLoading]);
 
   if (!planning) {
     return (

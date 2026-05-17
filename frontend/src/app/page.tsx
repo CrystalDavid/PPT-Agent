@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
 import ChatInput from '@/components/ChatInput';
 import ChatArea from '@/components/ChatArea';
@@ -18,7 +17,7 @@ import {
   generatePlanningDraft,
   refinePlanningPage,
   refinePlanningAll,
-  renderAllPages,
+  renderSinglePage,
   exportPptx,
   exportHtml,
   type ChatResponse,
@@ -112,6 +111,7 @@ export default function Home() {
   const handleConfirmBrief = () => {
     setStage('outline');
     setActivePanel('outline');
+    if (!outline) handleGenerateOutline();
   };
 
   // 生成大纲
@@ -149,6 +149,7 @@ export default function Home() {
   const handleConfirmOutline = () => {
     setStage('planning');
     setActivePanel('planning');
+    if (!planning) handleGeneratePlanning();
   };
 
   // 生成策划稿
@@ -198,20 +199,33 @@ export default function Home() {
     }
   };
 
-  // 渲染
+  // 渲染 — 逐页渲染，每页一个请求，避免超时
   const handleRenderPages = async () => {
-    if (!sessionId) return;
+    if (!sessionId || !planning) return;
     setIsLoading(true);
     setStage('render');
     setActivePanel('render');
-    addLog('request', '开始渲染页面...');
+    addLog('request', '开始逐页渲染...');
+
+    const planData = (planning as { planning_draft?: { pages: { page_number: number; title: string }[] } }).planning_draft || planning as { pages: { page_number: number; title: string }[] };
+    const pageList = Array.isArray((planData as Record<string, unknown>).pages) ? (planData as { pages: { page_number: number; title: string }[] }).pages : [];
+
+    const rendered: RenderedPage[] = [];
     try {
-      const data = await renderAllPages(sessionId);
-      setRenderedPages(data.pages);
+      for (const page of pageList) {
+        addLog('info', `渲染第 ${page.page_number} 页: ${page.title}...`);
+        const result = await renderSinglePage(sessionId, page.page_number);
+        rendered.push({ page_number: page.page_number, title: page.title, html: result.html });
+        setRenderedPages([...rendered]); // 逐页更新，用户可以实时看到
+      }
       setStage('export');
-      addLog('info', `渲染完成，共 ${data.pages.length} 页`);
+      addLog('info', `渲染完成，共 ${rendered.length} 页`);
     } catch (err: unknown) {
-      addLog('error', err instanceof Error ? err.message : '渲染失败');
+      addLog('error', `渲染第 ${rendered.length + 1} 页失败: ${err instanceof Error ? err.message : '未知错误'}`);
+      if (rendered.length > 0) {
+        addLog('info', `已成功渲染 ${rendered.length} 页，可以先预览已完成的部分`);
+        setStage('export');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -268,50 +282,43 @@ export default function Home() {
         </header>
 
         <div className="flex-1 overflow-y-auto">
-          <AnimatePresence mode="wait">
-            {activePanel === 'interview' && (
-              <motion.div key="interview" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full flex flex-col">
-                <div className="flex-1 overflow-y-auto px-6 py-6">
-                  {messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center">
-                      <h2 className="text-2xl font-semibold text-slate-800 mb-2">开始创建你的演示文稿</h2>
-                      <p className="text-slate-500 max-w-md">告诉我你想做什么 PPT，我会通过几轮对话帮你理清思路</p>
-                    </div>
-                  ) : (
-                    <ChatArea messages={messages} isLoading={isLoading} />
-                  )}
-                  <div ref={bottomRef} />
+          {/* 访谈 */}
+          <div className={activePanel === 'interview' ? 'h-full flex flex-col' : 'hidden'}>
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              {messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <h2 className="text-2xl font-semibold text-slate-800 mb-2">开始创建你的演示文稿</h2>
+                  <p className="text-slate-500 max-w-md">告诉我你想做什么 PPT，我会通过几轮对话帮你理清思路</p>
                 </div>
-                <div className="px-6 pb-6 shrink-0">
-                  <ChatInput onSend={handleSend} disabled={isLoading} />
-                </div>
-              </motion.div>
-            )}
+              ) : (
+                <ChatArea messages={messages} isLoading={isLoading} />
+              )}
+              <div ref={bottomRef} />
+            </div>
+            <div className="px-6 pb-6 shrink-0">
+              <ChatInput onSend={handleSend} disabled={isLoading} />
+            </div>
+          </div>
 
-            {activePanel === 'brief' && (
-              <motion.div key="brief" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-6 overflow-y-auto h-full">
-                <BriefPanel brief={brief} isLoading={isLoading} onConfirm={handleConfirmBrief} onRefine={handleRefineBrief} onGoBack={() => setActivePanel('interview')} />
-              </motion.div>
-            )}
+          {/* 调研底稿 */}
+          <div className={activePanel === 'brief' ? 'p-6 h-full overflow-y-auto' : 'hidden'}>
+            <BriefPanel brief={brief} isLoading={isLoading} onConfirm={handleConfirmBrief} onRefine={handleRefineBrief} onGoBack={() => setActivePanel('interview')} />
+          </div>
 
-            {activePanel === 'outline' && (
-              <motion.div key="outline" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-6 overflow-y-auto h-full">
-                <OutlinePanel outline={outline} isLoading={isLoading} onGenerate={handleGenerateOutline} onRefine={handleRefineOutline} onConfirm={handleConfirmOutline} onGoBack={() => setActivePanel('brief')} />
-              </motion.div>
-            )}
+          {/* 大纲 */}
+          <div className={activePanel === 'outline' ? 'p-6 h-full overflow-y-auto' : 'hidden'}>
+            <OutlinePanel outline={outline} isLoading={isLoading} onGenerate={handleGenerateOutline} onRefine={handleRefineOutline} onConfirm={handleConfirmOutline} onGoBack={() => setActivePanel('brief')} />
+          </div>
 
-            {activePanel === 'planning' && (
-              <motion.div key="planning" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-6 overflow-y-auto h-full">
-                <PlanningPanel planning={planning} isLoading={isLoading} onGenerate={handleGeneratePlanning} onRefinePage={handleRefinePlanningPage} onRefineAll={handleRefinePlanningAll} onConfirm={handleRenderPages} onGoBack={() => setActivePanel('outline')} />
-              </motion.div>
-            )}
+          {/* 策划稿 */}
+          <div className={activePanel === 'planning' ? 'p-6 h-full overflow-y-auto' : 'hidden'}>
+            <PlanningPanel planning={planning} isLoading={isLoading} onGenerate={handleGeneratePlanning} onRefinePage={handleRefinePlanningPage} onRefineAll={handleRefinePlanningAll} onConfirm={handleRenderPages} onGoBack={() => setActivePanel('outline')} />
+          </div>
 
-            {(activePanel === 'render' || activePanel === 'export') && (
-              <motion.div key="render" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-6 overflow-y-auto h-full">
-                <RenderPanel pages={renderedPages} isLoading={isLoading} isExporting={isExporting} onExportPptx={handleExportPptx} onExportHtml={handleExportHtml} onGoBack={() => setActivePanel('planning')} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* 渲染/导出 */}
+          <div className={(activePanel === 'render' || activePanel === 'export') ? 'p-6 h-full overflow-y-auto' : 'hidden'}>
+            <RenderPanel pages={renderedPages} isLoading={isLoading} isExporting={isExporting} onExportPptx={handleExportPptx} onExportHtml={handleExportHtml} onGoBack={() => setActivePanel('planning')} />
+          </div>
         </div>
       </main>
 

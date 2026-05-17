@@ -141,24 +141,29 @@ export async function refinePlanningAll(sessionId: string, feedback: string): Pr
 
 export async function renderAllPages(sessionId: string): Promise<RenderResponse> {
   // 直接调用后端，绕过 Next.js 代理（避免代理超时）
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 300000); // 5分钟超时
-
-  try {
-    const res = await fetch(`http://localhost:3001/api/workflow/render`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId }),
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: '请求失败' }));
-      throw new Error(err.error || `HTTP ${res.status}`);
-    }
-    return res.json();
-  } finally {
-    clearTimeout(timeout);
+  const res = await fetch(`http://localhost:3001/api/workflow/render`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: '请求失败' }));
+    throw new Error(err.error || `HTTP ${res.status}`);
   }
+  return res.json();
+}
+
+export async function renderSinglePage(sessionId: string, pageNumber: number): Promise<{ html: string }> {
+  const res = await fetch(`http://localhost:3001/api/workflow/render/page`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId, pageNumber }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: '请求失败' }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 export async function exportPptx(sessionId: string): Promise<ExportResponse> {
