@@ -4,6 +4,7 @@
 
 const { chatCompletion } = require('./ai');
 const { RESEARCH_BRIEF_SYSTEM } = require('../prompts/interview');
+const { safeParseJSON } = require('./jsonParser');
 
 /**
  * 根据用户反馈修改调研底稿
@@ -20,16 +21,6 @@ async function refineBrief(session, feedback) {
   const brief = safeParseJSON(result);
   session.brief = brief;
   return brief;
-}
-
-function safeParseJSON(text) {
-  try {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-    return { raw: text };
-  } catch {
-    return { raw: text };
-  }
 }
 
 module.exports = { refineBrief };

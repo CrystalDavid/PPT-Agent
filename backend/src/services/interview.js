@@ -182,16 +182,7 @@ async function handleInterviewMessage(session, userMessage) {
 
 // ---- 工具函数 ----
 
-function safeParseJSON(text) {
-  try {
-    // 尝试提取 JSON 块
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-    return { raw: text };
-  } catch {
-    return { raw: text };
-  }
-}
+const { safeParseJSON } = require('./jsonParser');
 
 function parseConstraints(session, message) {
   // 简单提取，后续可用 AI 做结构化解析

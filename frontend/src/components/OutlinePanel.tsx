@@ -40,6 +40,31 @@ export default function OutlinePanel({ outline, isLoading, onGenerate, onRefine,
   const cover = (data as Record<string, unknown>).cover as { title: string; sub_title?: string } | undefined;
   const endPage = (data as Record<string, unknown>).end_page as { title: string; key_takeaways?: string[] } | undefined;
 
+  // 如果解析失败（只有 raw 字段），显示重试
+  const hasContent = !!(parts && parts.length > 0);
+  if (!hasContent) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-5">
+        <div className="flex items-center gap-3">
+          <button onClick={onGoBack} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+            <ArrowLeft size={18} />
+          </button>
+          <h2 className="text-lg font-semibold text-slate-800">PPT 大纲</h2>
+        </div>
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+          <p className="text-sm text-orange-700 mb-3">大纲数据格式异常，请重新生成</p>
+          <button
+            onClick={onGenerate}
+            disabled={isLoading}
+            className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-colors"
+          >
+            {isLoading ? '生成中...' : '重新生成大纲'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const handleSubmit = () => {
     if (!feedback.trim()) return;
     let finalFeedback = feedback.trim();

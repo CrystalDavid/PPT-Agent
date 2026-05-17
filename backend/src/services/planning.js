@@ -4,6 +4,7 @@
 
 const { chatCompletion } = require('./ai');
 const { PLANNING_SYSTEM } = require('../prompts/planning');
+const { safeParseJSON } = require('./jsonParser');
 
 /**
  * 基于大纲和底稿生成逐页策划稿
@@ -45,18 +46,6 @@ async function refinePlanningPage(session, pageNumber, userFeedback) {
   return newPlanning;
 }
 
-function safeParseJSON(text) {
-  try {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-    return { raw: text };
-  } catch {
-    return { raw: text };
-  }
-}
-
-module.exports = { generatePlanning, refinePlanningPage, refinePlanningAll };
-
 /**
  * 整体修改策划稿
  */
@@ -75,3 +64,5 @@ async function refinePlanningAll(session, feedback) {
   session.planning = newPlanning;
   return newPlanning;
 }
+
+module.exports = { generatePlanning, refinePlanningPage, refinePlanningAll };

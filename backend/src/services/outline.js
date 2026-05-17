@@ -4,6 +4,7 @@
 
 const { chatCompletion } = require('./ai');
 const { OUTLINE_SYSTEM } = require('../prompts/outline');
+const { safeParseJSON } = require('./jsonParser');
 
 /**
  * 基于调研底稿生成 PPT 大纲
@@ -41,16 +42,6 @@ async function refineOutline(session, userFeedback) {
   const outline = safeParseJSON(result);
   session.outline = outline;
   return outline;
-}
-
-function safeParseJSON(text) {
-  try {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-    return { raw: text };
-  } catch {
-    return { raw: text };
-  }
 }
 
 module.exports = { generateOutline, refineOutline };
