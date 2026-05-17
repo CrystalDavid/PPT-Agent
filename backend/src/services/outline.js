@@ -22,7 +22,7 @@ async function generateOutline(session) {
 
   const outline = safeParseJSON(result);
   session.outline = outline;
-  session.stage = 'planning';
+  session.stage = 'outline';
   return outline;
 }
 

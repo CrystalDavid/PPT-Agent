@@ -22,7 +22,7 @@ async function generatePlanning(session) {
 
   const planning = safeParseJSON(result);
   session.planning = planning;
-  session.stage = 'render';
+  session.stage = 'planning';
   return planning;
 }
 
