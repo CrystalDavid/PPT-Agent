@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '@/components/Sidebar';
 import ChatInput from '@/components/ChatInput';
@@ -9,6 +9,7 @@ import BriefPanel from '@/components/BriefPanel';
 import OutlinePanel from '@/components/OutlinePanel';
 import PlanningPanel from '@/components/PlanningPanel';
 import RenderPanel from '@/components/RenderPanel';
+import AiLogPanel, { type LogEntry } from '@/components/AiLogPanel';
 import {
   sendMessage,
   refineBrief,
@@ -16,6 +17,7 @@ import {
   refineOutline,
   generatePlanningDraft,
   refinePlanningPage,
+  refinePlanningAll,
   renderAllPages,
   exportPptx,
   exportHtml,
@@ -43,18 +45,22 @@ export default function Home() {
   const [activePanel, setActivePanel] = useState<WorkflowStage>('interview');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingText, setLoadingText] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [brief, setBrief] = useState<Record<string, unknown> | null>(null);
   const [outline, setOutline] = useState<Record<string, unknown> | null>(null);
   const [planning, setPlanning] = useState<Record<string, unknown> | null>(null);
   const [renderedPages, setRenderedPages] = useState<RenderedPage[]>([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const addLog = useCallback((type: LogEntry['type'], content: string) => {
+    setLogs((prev) => [...prev, { id: Date.now().toString() + Math.random(), timestamp: Date.now(), type, content }]);
+  }, []);
 
   const handleStageClick = (clickedStage: WorkflowStage) => {
     setActivePanel(clickedStage);
@@ -62,15 +68,10 @@ export default function Home() {
 
   // 第一阶段：对话
   const handleSend = async (content: string) => {
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content,
-      timestamp: Date.now(),
-    };
+    const userMsg: Message = { id: Date.now().toString(), role: 'user', content, timestamp: Date.now() };
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
-    setLoadingText('AI 正在思考...');
+    addLog('request', `用户输入: ${content}`);
 
     try {
       const data: ChatResponse = await sendMessage(sessionId, content);
@@ -79,149 +80,162 @@ export default function Home() {
         setBrief(data.brief);
         setStage('brief');
         setActivePanel('brief');
+        addLog('info', '调研底稿已生成');
       }
-
-      const aiMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.reply,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, aiMsg]);
+      addLog('response', data.reply.substring(0, 200) + (data.reply.length > 200 ? '...' : ''));
+      setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: data.reply, timestamp: Date.now() }]);
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : '请求失败';
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `抱歉，出现了错误：${errorMsg}`,
-        timestamp: Date.now(),
-      }]);
+      const msg = err instanceof Error ? err.message : '请求失败';
+      addLog('error', msg);
+      setMessages((prev) => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: `出现错误：${msg}`, timestamp: Date.now() }]);
     } finally {
       setIsLoading(false);
-      setLoadingText('');
     }
   };
 
-  // 修改调研底稿
+  // 修改底稿
   const handleRefineBrief = async (feedback: string) => {
     if (!sessionId) return;
     setIsLoading(true);
-    setLoadingText('正在修改调研底稿...');
+    addLog('request', `修改底稿: ${feedback}`);
     try {
       const data = await refineBrief(sessionId, feedback);
       setBrief(data.brief);
+      addLog('info', '底稿已更新');
     } catch (err: unknown) {
+      addLog('error', err instanceof Error ? err.message : '修改失败');
       alert(err instanceof Error ? err.message : '修改底稿失败');
     } finally {
       setIsLoading(false);
-      setLoadingText('');
     }
   };
 
-  // 确认底稿，进入大纲阶段
   const handleConfirmBrief = () => {
     setStage('outline');
     setActivePanel('outline');
   };
 
-  // 第二阶段：生成大纲
+  // 生成大纲
   const handleGenerateOutline = async () => {
     if (!sessionId) return;
     setIsLoading(true);
-    setLoadingText('正在生成大纲...');
+    addLog('request', '生成大纲...');
     try {
       const data = await generateOutline(sessionId);
       setOutline(data.outline);
       setStage('outline');
+      addLog('info', '大纲已生成');
     } catch (err: unknown) {
+      addLog('error', err instanceof Error ? err.message : '生成失败');
       alert(err instanceof Error ? err.message : '生成大纲失败');
     } finally {
       setIsLoading(false);
-      setLoadingText('');
     }
   };
 
   const handleRefineOutline = async (feedback: string) => {
     if (!sessionId) return;
     setIsLoading(true);
-    setLoadingText('正在修改大纲...');
+    addLog('request', `修改大纲: ${feedback}`);
     try {
       const data = await refineOutline(sessionId, feedback);
       setOutline(data.outline);
+      addLog('info', '大纲已更新');
     } catch (err: unknown) {
+      addLog('error', err instanceof Error ? err.message : '修改失败');
       alert(err instanceof Error ? err.message : '修改大纲失败');
     } finally {
       setIsLoading(false);
-      setLoadingText('');
     }
   };
 
   const handleConfirmOutline = () => {
     setStage('planning');
     setActivePanel('planning');
-    if (!planning) handleGeneratePlanning();
   };
 
-  // 第三阶段：生成策划稿
+  // 生成策划稿
   const handleGeneratePlanning = async () => {
     if (!sessionId) return;
     setIsLoading(true);
-    setLoadingText('正在生成策划稿...');
+    addLog('request', '生成策划稿...');
     try {
       const data = await generatePlanningDraft(sessionId);
       setPlanning(data.planning);
       setStage('planning');
+      addLog('info', '策划稿已生成');
     } catch (err: unknown) {
+      addLog('error', err instanceof Error ? err.message : '生成失败');
       alert(err instanceof Error ? err.message : '生成策划稿失败');
     } finally {
       setIsLoading(false);
-      setLoadingText('');
     }
   };
 
   const handleRefinePlanningPage = async (pageNumber: number, feedback: string) => {
     if (!sessionId) return;
     setIsLoading(true);
-    setLoadingText(`正在修改第 ${pageNumber} 页...`);
+    addLog('request', `修改策划稿第 ${pageNumber} 页: ${feedback}`);
     try {
       const data = await refinePlanningPage(sessionId, pageNumber, feedback);
       setPlanning(data.planning);
+      addLog('info', `第 ${pageNumber} 页已更新`);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : '修改策划稿失败');
+      addLog('error', err instanceof Error ? err.message : '修改失败');
+      alert(err instanceof Error ? err.message : '修改失败');
     } finally {
       setIsLoading(false);
-      setLoadingText('');
     }
   };
 
-  // 第四阶段：渲染页面
+  const handleRefinePlanningAll = async (feedback: string) => {
+    if (!sessionId) return;
+    setIsLoading(true);
+    addLog('request', `修改整体策划稿: ${feedback}`);
+    try {
+      const data = await refinePlanningAll(sessionId, feedback);
+      setPlanning(data.planning);
+      addLog('info', '策划稿已整体更新');
+    } catch (err: unknown) {
+      addLog('error', err instanceof Error ? err.message : '修改失败');
+      alert(err instanceof Error ? err.message : '修改失败');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 渲染
   const handleRenderPages = async () => {
     if (!sessionId) return;
     setIsLoading(true);
-    setLoadingText('正在渲染页面（约 1~2 分钟）...');
     setStage('render');
     setActivePanel('render');
+    addLog('request', '开始渲染页面...');
     try {
       const data = await renderAllPages(sessionId);
       setRenderedPages(data.pages);
       setStage('export');
+      addLog('info', `渲染完成，共 ${data.pages.length} 页`);
     } catch (err: unknown) {
+      addLog('error', err instanceof Error ? err.message : '渲染失败');
       alert(err instanceof Error ? err.message : '渲染失败');
     } finally {
       setIsLoading(false);
-      setLoadingText('');
     }
   };
 
-  // 第五阶段：导出
+  // 导出
   const handleExportPptx = async () => {
     if (!sessionId) return;
     setIsExporting(true);
+    addLog('request', '导出 PPTX...');
     try {
       const data = await exportPptx(sessionId);
       window.open(data.downloadUrl, '_blank');
+      addLog('info', `PPTX 已生成: ${data.filename}`);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : '导出 PPTX 失败');
+      addLog('error', err instanceof Error ? err.message : '导出失败');
+      alert(err instanceof Error ? err.message : '导出失败');
     } finally {
       setIsExporting(false);
     }
@@ -230,11 +244,14 @@ export default function Home() {
   const handleExportHtml = async () => {
     if (!sessionId) return;
     setIsExporting(true);
+    addLog('request', '导出 HTML...');
     try {
       const data = await exportHtml(sessionId);
       window.open(data.downloadUrl, '_blank');
+      addLog('info', `HTML 已生成: ${data.filename}`);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : '导出 HTML 失败');
+      addLog('error', err instanceof Error ? err.message : '导出失败');
+      alert(err instanceof Error ? err.message : '导出失败');
     } finally {
       setIsExporting(false);
     }
@@ -242,6 +259,7 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-surface-secondary">
+      {/* 左侧边栏 */}
       <Sidebar
         currentStage={stage}
         activePanel={activePanel}
@@ -252,28 +270,16 @@ export default function Home() {
         hasRender={renderedPages.length > 0}
       />
 
+      {/* 中间主内容区 */}
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="h-14 flex items-center px-6 border-b border-slate-100 bg-white/80 backdrop-blur-sm shrink-0">
           <h1 className="text-base font-semibold text-slate-700">PPT Agent</h1>
-          {isLoading && (
-            <div className="ml-4 flex items-center gap-2 text-sm text-slate-400">
-              <div className="w-3 h-3 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin" />
-              {loadingText}
-            </div>
-          )}
         </header>
 
         <div className="flex-1 overflow-y-auto">
           <AnimatePresence mode="wait">
-            {/* 访谈阶段 */}
             {activePanel === 'interview' && (
-              <motion.div
-                key="interview"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="h-full flex flex-col"
-              >
+              <motion.div key="interview" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="h-full flex flex-col">
                 <div className="flex-1 overflow-y-auto px-6 py-6">
                   {messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center">
@@ -291,86 +297,35 @@ export default function Home() {
               </motion.div>
             )}
 
-            {/* 调研底稿阶段 */}
             {activePanel === 'brief' && (
-              <motion.div
-                key="brief"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="p-6 overflow-y-auto h-full"
-              >
-                <BriefPanel
-                  brief={brief}
-                  isLoading={isLoading}
-                  onConfirm={handleConfirmBrief}
-                  onRefine={handleRefineBrief}
-                  onGoBack={() => setActivePanel('interview')}
-                />
+              <motion.div key="brief" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-6 overflow-y-auto h-full">
+                <BriefPanel brief={brief} isLoading={isLoading} onConfirm={handleConfirmBrief} onRefine={handleRefineBrief} onGoBack={() => setActivePanel('interview')} />
               </motion.div>
             )}
 
-            {/* 大纲阶段 */}
             {activePanel === 'outline' && (
-              <motion.div
-                key="outline"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="p-6 overflow-y-auto h-full"
-              >
-                <OutlinePanel
-                  outline={outline}
-                  isLoading={isLoading}
-                  onGenerate={handleGenerateOutline}
-                  onRefine={handleRefineOutline}
-                  onConfirm={handleConfirmOutline}
-                  onGoBack={() => setActivePanel('brief')}
-                />
+              <motion.div key="outline" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-6 overflow-y-auto h-full">
+                <OutlinePanel outline={outline} isLoading={isLoading} onGenerate={handleGenerateOutline} onRefine={handleRefineOutline} onConfirm={handleConfirmOutline} onGoBack={() => setActivePanel('brief')} />
               </motion.div>
             )}
 
-            {/* 策划稿阶段 */}
             {activePanel === 'planning' && (
-              <motion.div
-                key="planning"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="p-6 overflow-y-auto h-full"
-              >
-                <PlanningPanel
-                  planning={planning}
-                  isLoading={isLoading}
-                  onRefinePage={handleRefinePlanningPage}
-                  onConfirm={handleRenderPages}
-                  onGoBack={() => setActivePanel('outline')}
-                />
+              <motion.div key="planning" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-6 overflow-y-auto h-full">
+                <PlanningPanel planning={planning} isLoading={isLoading} onGenerate={handleGeneratePlanning} onRefinePage={handleRefinePlanningPage} onRefineAll={handleRefinePlanningAll} onConfirm={handleRenderPages} onGoBack={() => setActivePanel('outline')} />
               </motion.div>
             )}
 
-            {/* 渲染/导出阶段 */}
             {(activePanel === 'render' || activePanel === 'export') && (
-              <motion.div
-                key="render"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="p-6 overflow-y-auto h-full"
-              >
-                <RenderPanel
-                  pages={renderedPages}
-                  isLoading={isLoading}
-                  isExporting={isExporting}
-                  onExportPptx={handleExportPptx}
-                  onExportHtml={handleExportHtml}
-                  onGoBack={() => setActivePanel('planning')}
-                />
+              <motion.div key="render" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="p-6 overflow-y-auto h-full">
+                <RenderPanel pages={renderedPages} isLoading={isLoading} isExporting={isExporting} onExportPptx={handleExportPptx} onExportHtml={handleExportHtml} onGoBack={() => setActivePanel('planning')} />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
       </main>
+
+      {/* 右侧 AI 日志面板 */}
+      <AiLogPanel logs={logs} onClear={() => setLogs([])} />
     </div>
   );
 }

@@ -126,6 +126,19 @@ export async function refinePlanningPage(sessionId: string, pageNumber: number, 
   return res.json();
 }
 
+export async function refinePlanningAll(sessionId: string, feedback: string): Promise<PlanningResponse> {
+  const res = await fetch(`${API_BASE}/planning/refine-all`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId, feedback }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: '请求失败' }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function renderAllPages(sessionId: string): Promise<RenderResponse> {
   const res = await fetch(`${API_BASE}/render`, {
     method: 'POST',

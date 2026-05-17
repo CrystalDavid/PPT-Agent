@@ -143,6 +143,22 @@ router.post('/planning/refine', async (req, res) => {
   }
 });
 
+router.post('/planning/refine-all', async (req, res) => {
+  try {
+    const { sessionId, feedback } = req.body;
+    const session = getSession(sessionId);
+    if (!session) return res.status(404).json({ error: '会话不存在' });
+    if (!session.planning) return res.status(400).json({ error: '请先生成策划稿' });
+
+    const { refinePlanningAll } = require('../services/planning');
+    const planning = await refinePlanningAll(session, feedback);
+    res.json({ sessionId: session.id, stage: session.stage, planning });
+  } catch (err) {
+    console.error('Planning refine-all error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============================================================
 // Step 4: 渲染 HTML 页面
 // ============================================================
