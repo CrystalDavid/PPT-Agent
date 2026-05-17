@@ -60,6 +60,23 @@ router.get('/brief/:sessionId', (req, res) => {
   res.json({ brief: session.brief });
 });
 
+// 修改调研底稿
+router.post('/brief/refine', async (req, res) => {
+  try {
+    const { sessionId, feedback } = req.body;
+    const session = getSession(sessionId);
+    if (!session) return res.status(404).json({ error: '会话不存在' });
+    if (!session.brief) return res.status(400).json({ error: '底稿尚未生成' });
+
+    const { refineBrief } = require('../services/brief');
+    const brief = await refineBrief(session, feedback);
+    res.json({ sessionId: session.id, brief });
+  } catch (err) {
+    console.error('Brief refine error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============================================================
 // Step 2: 生成大纲
 // ============================================================

@@ -11,6 +11,7 @@ import PlanningPanel from '@/components/PlanningPanel';
 import RenderPanel from '@/components/RenderPanel';
 import {
   sendMessage,
+  refineBrief,
   generateOutline,
   refineOutline,
   generatePlanningDraft,
@@ -24,6 +25,7 @@ import {
 
 export type WorkflowStage =
   | 'interview'
+  | 'brief'
   | 'outline'
   | 'planning'
   | 'render'
@@ -54,7 +56,6 @@ export default function Home() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // 侧边栏点击切换面板
   const handleStageClick = (clickedStage: WorkflowStage) => {
     setActivePanel(clickedStage);
   };
@@ -76,8 +77,8 @@ export default function Home() {
       if (data.sessionId) setSessionId(data.sessionId);
       if (data.brief) {
         setBrief(data.brief);
-        setStage('outline');
-        setActivePanel('outline');
+        setStage('brief');
+        setActivePanel('brief');
       }
 
       const aiMsg: Message = {
@@ -101,6 +102,28 @@ export default function Home() {
     }
   };
 
+  // 修改调研底稿
+  const handleRefineBrief = async (feedback: string) => {
+    if (!sessionId) return;
+    setIsLoading(true);
+    setLoadingText('正在修改调研底稿...');
+    try {
+      const data = await refineBrief(sessionId, feedback);
+      setBrief(data.brief);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : '修改底稿失败');
+    } finally {
+      setIsLoading(false);
+      setLoadingText('');
+    }
+  };
+
+  // 确认底稿，进入大纲阶段
+  const handleConfirmBrief = () => {
+    setStage('outline');
+    setActivePanel('outline');
+  };
+
   // 第二阶段：生成大纲
   const handleGenerateOutline = async () => {
     if (!sessionId) return;
@@ -109,8 +132,7 @@ export default function Home() {
     try {
       const data = await generateOutline(sessionId);
       setOutline(data.outline);
-      setStage('planning');
-      setActivePanel('planning');
+      setStage('outline');
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : '生成大纲失败');
     } finally {
@@ -134,6 +156,12 @@ export default function Home() {
     }
   };
 
+  const handleConfirmOutline = () => {
+    setStage('planning');
+    setActivePanel('planning');
+    if (!planning) handleGeneratePlanning();
+  };
+
   // 第三阶段：生成策划稿
   const handleGeneratePlanning = async () => {
     if (!sessionId) return;
@@ -142,8 +170,7 @@ export default function Home() {
     try {
       const data = await generatePlanningDraft(sessionId);
       setPlanning(data.planning);
-      setStage('render');
-      setActivePanel('render');
+      setStage('planning');
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : '生成策划稿失败');
     } finally {
@@ -172,11 +199,12 @@ export default function Home() {
     if (!sessionId) return;
     setIsLoading(true);
     setLoadingText('正在渲染页面（约 1~2 分钟）...');
+    setStage('render');
+    setActivePanel('render');
     try {
       const data = await renderAllPages(sessionId);
       setRenderedPages(data.pages);
       setStage('export');
-      setActivePanel('export');
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : '渲染失败');
     } finally {
@@ -212,14 +240,8 @@ export default function Home() {
     }
   };
 
-  // 回退到某个阶段
-  const handleGoBack = (targetStage: WorkflowStage) => {
-    setActivePanel(targetStage);
-  };
-
   return (
     <div className="flex h-screen bg-surface-secondary">
-      {/* 左侧边栏 */}
       <Sidebar
         currentStage={stage}
         activePanel={activePanel}
@@ -230,9 +252,7 @@ export default function Home() {
         hasRender={renderedPages.length > 0}
       />
 
-      {/* 右侧主内容区 */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        {/* 顶部标题栏 */}
         <header className="h-14 flex items-center px-6 border-b border-slate-100 bg-white/80 backdrop-blur-sm shrink-0">
           <h1 className="text-base font-semibold text-slate-700">PPT Agent</h1>
           {isLoading && (
@@ -243,9 +263,9 @@ export default function Home() {
           )}
         </header>
 
-        {/* 内容区 */}
         <div className="flex-1 overflow-y-auto">
           <AnimatePresence mode="wait">
+            {/* 访谈阶段 */}
             {activePanel === 'interview' && (
               <motion.div
                 key="interview"
@@ -271,6 +291,26 @@ export default function Home() {
               </motion.div>
             )}
 
+            {/* 调研底稿阶段 */}
+            {activePanel === 'brief' && (
+              <motion.div
+                key="brief"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="p-6 overflow-y-auto h-full"
+              >
+                <BriefPanel
+                  brief={brief}
+                  isLoading={isLoading}
+                  onConfirm={handleConfirmBrief}
+                  onRefine={handleRefineBrief}
+                  onGoBack={() => setActivePanel('interview')}
+                />
+              </motion.div>
+            )}
+
+            {/* 大纲阶段 */}
             {activePanel === 'outline' && (
               <motion.div
                 key="outline"
@@ -279,20 +319,18 @@ export default function Home() {
                 exit={{ opacity: 0, x: -20 }}
                 className="p-6 overflow-y-auto h-full"
               >
-                <BriefPanel
-                  brief={brief}
+                <OutlinePanel
                   outline={outline}
                   isLoading={isLoading}
-                  onGenerateOutline={handleGenerateOutline}
-                  onRefineOutline={handleRefineOutline}
-                  onConfirmOutline={() => {
-                    setActivePanel('planning');
-                    if (!planning) handleGeneratePlanning();
-                  }}
+                  onGenerate={handleGenerateOutline}
+                  onRefine={handleRefineOutline}
+                  onConfirm={handleConfirmOutline}
+                  onGoBack={() => setActivePanel('brief')}
                 />
               </motion.div>
             )}
 
+            {/* 策划稿阶段 */}
             {activePanel === 'planning' && (
               <motion.div
                 key="planning"
@@ -311,6 +349,7 @@ export default function Home() {
               </motion.div>
             )}
 
+            {/* 渲染/导出阶段 */}
             {(activePanel === 'render' || activePanel === 'export') && (
               <motion.div
                 key="render"

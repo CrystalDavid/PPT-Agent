@@ -13,6 +13,11 @@ export interface ChatResponse {
   brief: Record<string, unknown> | null;
 }
 
+export interface BriefResponse {
+  sessionId: string;
+  brief: Record<string, unknown>;
+}
+
 export interface OutlineResponse {
   sessionId: string;
   stage: string;
@@ -43,10 +48,7 @@ export interface ExportResponse {
   downloadUrl: string;
 }
 
-export async function sendMessage(
-  sessionId: string | null,
-  message: string
-): Promise<ChatResponse> {
+export async function sendMessage(sessionId: string | null, message: string): Promise<ChatResponse> {
   const res = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -59,9 +61,16 @@ export async function sendMessage(
   return res.json();
 }
 
-export async function getBrief(sessionId: string) {
-  const res = await fetch(`${API_BASE}/brief/${sessionId}`);
-  if (!res.ok) throw new Error('获取底稿失败');
+export async function refineBrief(sessionId: string, feedback: string): Promise<BriefResponse> {
+  const res = await fetch(`${API_BASE}/brief/refine`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId, feedback }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: '请求失败' }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
   return res.json();
 }
 
@@ -104,11 +113,7 @@ export async function generatePlanningDraft(sessionId: string): Promise<Planning
   return res.json();
 }
 
-export async function refinePlanningPage(
-  sessionId: string,
-  pageNumber: number,
-  feedback: string
-): Promise<PlanningResponse> {
+export async function refinePlanningPage(sessionId: string, pageNumber: number, feedback: string): Promise<PlanningResponse> {
   const res = await fetch(`${API_BASE}/planning/refine`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

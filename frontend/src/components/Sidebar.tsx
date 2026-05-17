@@ -2,11 +2,12 @@
 
 import { motion } from 'framer-motion';
 import type { WorkflowStage } from '@/app/page';
-import { FileText, List, LayoutGrid, Monitor, Download } from 'lucide-react';
+import { FileText, ClipboardList, List, LayoutGrid, Monitor, Download } from 'lucide-react';
 
 const steps: { key: WorkflowStage; label: string; icon: typeof FileText }[] = [
   { key: 'interview', label: '需求访谈', icon: FileText },
-  { key: 'outline', label: '调研与大纲', icon: List },
+  { key: 'brief', label: '调研底稿', icon: ClipboardList },
+  { key: 'outline', label: '大纲', icon: List },
   { key: 'planning', label: '策划稿', icon: LayoutGrid },
   { key: 'render', label: '页面渲染', icon: Monitor },
   { key: 'export', label: '导出交付', icon: Download },
@@ -31,12 +32,13 @@ export default function Sidebar({
   hasPlanning,
   hasRender,
 }: SidebarProps) {
-  const stageOrder: WorkflowStage[] = ['interview', 'outline', 'planning', 'render', 'export'];
+  const stageOrder: WorkflowStage[] = ['interview', 'brief', 'outline', 'planning', 'render', 'export'];
   const currentIdx = stageOrder.indexOf(currentStage);
 
   const isUnlocked = (key: WorkflowStage) => {
     switch (key) {
       case 'interview': return true;
+      case 'brief': return hasBrief;
       case 'outline': return hasBrief;
       case 'planning': return hasOutline;
       case 'render': return hasPlanning;
@@ -76,24 +78,20 @@ export default function Sidebar({
                   : 'text-slate-300 cursor-not-allowed'
               }`}
             >
-              {/* 连接线 */}
               {idx < steps.length - 1 && (
                 <div className={`absolute left-[22px] top-[38px] w-px h-4 ${done ? 'bg-primary-300' : 'bg-slate-200'}`} />
               )}
 
-              {/* 图标 */}
               <div className={`w-5 h-5 flex items-center justify-center rounded-full shrink-0 ${
                 active ? 'text-primary-600' : done ? 'text-primary-400' : 'text-slate-300'
               }`}>
                 <Icon size={16} />
               </div>
 
-              {/* 文字 */}
               <span className={`text-sm font-medium ${active ? 'text-primary-700' : ''}`}>
                 {step.label}
               </span>
 
-              {/* 完成标记 */}
               {done && (
                 <motion.div
                   initial={{ scale: 0 }}
