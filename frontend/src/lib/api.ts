@@ -1,8 +1,9 @@
 /**
  * 前端 API 调用封装
+ * 所有请求直接调用后端，绕过 Next.js 代理（避免代理超时导致数据丢失）
  */
 
-const API_BASE = '/api/workflow';
+const API = 'http://localhost:3001/api/workflow';
 
 export interface ChatResponse {
   sessionId: string;
@@ -49,7 +50,7 @@ export interface ExportResponse {
 }
 
 export async function sendMessage(sessionId: string | null, message: string): Promise<ChatResponse> {
-  const res = await fetch(`${API_BASE}/chat`, {
+  const res = await fetch(`${API}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId, message }),
@@ -62,7 +63,7 @@ export async function sendMessage(sessionId: string | null, message: string): Pr
 }
 
 export async function refineBrief(sessionId: string, feedback: string): Promise<BriefResponse> {
-  const res = await fetch(`${API_BASE}/brief/refine`, {
+  const res = await fetch(`${API}/brief/refine`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId, feedback }),
@@ -75,7 +76,7 @@ export async function refineBrief(sessionId: string, feedback: string): Promise<
 }
 
 export async function generateOutline(sessionId: string): Promise<OutlineResponse> {
-  const res = await fetch(`${API_BASE}/outline`, {
+  const res = await fetch(`${API}/outline`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId }),
@@ -88,7 +89,7 @@ export async function generateOutline(sessionId: string): Promise<OutlineRespons
 }
 
 export async function refineOutline(sessionId: string, feedback: string): Promise<OutlineResponse> {
-  const res = await fetch(`${API_BASE}/outline/refine`, {
+  const res = await fetch(`${API}/outline/refine`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId, feedback }),
@@ -101,7 +102,7 @@ export async function refineOutline(sessionId: string, feedback: string): Promis
 }
 
 export async function generatePlanningDraft(sessionId: string): Promise<PlanningResponse> {
-  const res = await fetch(`${API_BASE}/planning`, {
+  const res = await fetch(`${API}/planning`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId }),
@@ -114,7 +115,7 @@ export async function generatePlanningDraft(sessionId: string): Promise<Planning
 }
 
 export async function refinePlanningPage(sessionId: string, pageNumber: number, feedback: string): Promise<PlanningResponse> {
-  const res = await fetch(`${API_BASE}/planning/refine`, {
+  const res = await fetch(`${API}/planning/refine`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId, pageNumber, feedback }),
@@ -127,7 +128,7 @@ export async function refinePlanningPage(sessionId: string, pageNumber: number, 
 }
 
 export async function refinePlanningAll(sessionId: string, feedback: string): Promise<PlanningResponse> {
-  const res = await fetch(`${API_BASE}/planning/refine-all`, {
+  const res = await fetch(`${API}/planning/refine-all`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId, feedback }),
@@ -167,7 +168,7 @@ export async function renderSinglePage(sessionId: string, pageNumber: number): P
 }
 
 export async function exportPptx(sessionId: string): Promise<ExportResponse> {
-  const res = await fetch(`${API_BASE}/export/pptx`, {
+  const res = await fetch(`http://localhost:3001/api/workflow/export/pptx`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId }),
@@ -180,7 +181,7 @@ export async function exportPptx(sessionId: string): Promise<ExportResponse> {
 }
 
 export async function exportHtml(sessionId: string): Promise<ExportResponse> {
-  const res = await fetch(`${API_BASE}/export/html`, {
+  const res = await fetch(`http://localhost:3001/api/workflow/export/html`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId }),
