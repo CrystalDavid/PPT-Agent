@@ -8,6 +8,7 @@ import BriefPanel from '@/components/BriefPanel';
 import OutlinePanel from '@/components/OutlinePanel';
 import PlanningPanel from '@/components/PlanningPanel';
 import RenderPanel from '@/components/RenderPanel';
+import ExportPanel from '@/components/ExportPanel';
 import AiLogPanel, { type LogEntry } from '@/components/AiLogPanel';
 import {
   sendMessage,
@@ -315,9 +316,14 @@ export default function Home() {
             <PlanningPanel planning={planning} isLoading={isLoading} onGenerate={handleGeneratePlanning} onRefinePage={handleRefinePlanningPage} onRefineAll={handleRefinePlanningAll} onConfirm={handleRenderPages} onGoBack={() => setActivePanel('outline')} />
           </div>
 
-          {/* 渲染/导出 */}
-          <div className={(activePanel === 'render' || activePanel === 'export') ? 'p-6 h-full overflow-y-auto' : 'hidden'}>
-            <RenderPanel pages={renderedPages} isLoading={isLoading} isExporting={isExporting} sessionId={sessionId} onPagesUpdate={setRenderedPages} onExportPptx={handleExportPptx} onExportHtml={handleExportHtml} onGoBack={() => setActivePanel('planning')} />
+          {/* 渲染预览 */}
+          <div className={activePanel === 'render' ? 'p-6 h-full overflow-y-auto' : 'hidden'}>
+            <RenderPanel pages={renderedPages} isLoading={isLoading} sessionId={sessionId} onPagesUpdate={setRenderedPages} onConfirm={() => { setStage('export'); setActivePanel('export'); }} onGoBack={() => setActivePanel('planning')} />
+          </div>
+
+          {/* 导出交付 */}
+          <div className={activePanel === 'export' ? 'p-6 h-full overflow-y-auto' : 'hidden'}>
+            <ExportPanel isExporting={isExporting} onExportPptx={handleExportPptx} onExportHtml={handleExportHtml} onGoBack={() => setActivePanel('render')} />
           </div>
         </div>
       </main>

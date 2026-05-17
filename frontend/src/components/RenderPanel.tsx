@@ -2,22 +2,20 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Download, Pencil, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, Pencil, RefreshCw, X } from 'lucide-react';
 import type { RenderedPage } from '@/lib/api';
 import { modifyRenderedPage, renderSinglePage } from '@/lib/api';
 
 interface RenderPanelProps {
   pages: RenderedPage[];
   isLoading: boolean;
-  isExporting: boolean;
   sessionId: string | null;
   onPagesUpdate: (pages: RenderedPage[]) => void;
-  onExportPptx: () => void;
-  onExportHtml: () => void;
+  onConfirm: () => void;
   onGoBack: () => void;
 }
 
-export default function RenderPanel({ pages, isLoading, isExporting, sessionId, onPagesUpdate, onExportPptx, onExportHtml, onGoBack }: RenderPanelProps) {
+export default function RenderPanel({ pages, isLoading, sessionId, onPagesUpdate, onConfirm, onGoBack }: RenderPanelProps) {
   const [editingPage, setEditingPage] = useState<number | null>(null);
   const [feedback, setFeedback] = useState('');
   const [modifying, setModifying] = useState(false);
@@ -91,27 +89,6 @@ export default function RenderPanel({ pages, isLoading, isExporting, sessionId, 
             {isLoading ? `已渲染 ${pages.length} 页，继续中...` : `共 ${pages.length} 页`}
           </span>
         </div>
-
-        {!isLoading && pages.length > 0 && (
-          <div className="flex gap-2">
-            <button
-              onClick={onExportPptx}
-              disabled={isExporting}
-              className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-colors"
-            >
-              <Download size={14} />
-              {isExporting ? '导出中...' : '下载 PPTX'}
-            </button>
-            <button
-              onClick={onExportHtml}
-              disabled={isExporting}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-colors"
-            >
-              <Download size={14} />
-              下载 HTML
-            </button>
-          </div>
-        )}
       </div>
 
       {/* 所有页面竖向排列 */}
@@ -135,7 +112,6 @@ export default function RenderPanel({ pages, isLoading, isExporting, sessionId, 
                   onClick={() => handleRegenerate(page.page_number)}
                   disabled={modifying}
                   className="flex items-center gap-1 px-2 py-1 text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50"
-                  title="重新生成"
                 >
                   <RefreshCw size={12} />
                   重新生成
@@ -144,7 +120,6 @@ export default function RenderPanel({ pages, isLoading, isExporting, sessionId, 
                   onClick={() => { setEditingPage(page.page_number); setFeedback(''); }}
                   disabled={modifying}
                   className="flex items-center gap-1 px-2 py-1 text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50"
-                  title="修改此页"
                 >
                   <Pencil size={12} />
                   修改
@@ -152,14 +127,32 @@ export default function RenderPanel({ pages, isLoading, isExporting, sessionId, 
               </div>
             </div>
 
-            {/* 幻灯片容器 - 固定 16:9，内容缩放填满 */}
-            <div className="relative w-full bg-slate-900 rounded-xl overflow-hidden shadow-lg" style={{ paddingBottom: '56.25%' }}>
-              <iframe
-                srcDoc={wrapHtmlForDisplay(page.html)}
-                className="absolute inset-0 w-full h-full border-0"
-                title={`Slide ${page.page_number}`}
-                sandbox="allow-scripts"
-              />
+            {/* 幻灯片容器 - CSS transform 缩放 */}
+            <div className="relative w-full rounded-xl overflow-hidden shadow-lg bg-slate-100" style={{ paddingBottom: '56.25%' }}>
+              <div className="absolute inset-0 flex items-start justify-center overflow-hidden">
+                <iframe
+                  srcDoc={page.html}
+                  className="border-0 origin-top-left"
+                  title={`Slide ${page.page_number}`}
+                  sandbox="allow-scripts"
+                  style={{
+                    width: '1280px',
+                    height: '720px',
+                    transform: 'scale(var(--slide-scale, 0.7))',
+                    transformOrigin: 'top left',
+                  }}
+                  ref={(el) => {
+                    if (el) {
+                      const container = el.parentElement;
+                      if (container) {
+                        const scale = container.clientWidth / 1280;
+                        el.style.setProperty('--slide-scale', String(scale));
+                        el.style.transform = `scale(${scale})`;
+                      }
+                    }
+                  }}
+                />
+              </div>
             </div>
 
             {/* 编辑区域 */}
@@ -202,39 +195,18 @@ export default function RenderPanel({ pages, isLoading, isExporting, sessionId, 
           </div>
         )}
       </div>
+
+      {/* 底部确认按钮 */}
+      {!isLoading && pages.length > 0 && (
+        <div className="sticky bottom-0 bg-surface-secondary pt-4 pb-2">
+          <button
+            onClick={onConfirm}
+            className="px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition-colors"
+          >
+            确认效果，进入导出
+          </button>
+        </div>
+      )}
     </div>
   );
-}
-
-/**
- * 包裹 HTML 确保在 iframe 中正确缩放填满容器
- */
-function wrapHtmlForDisplay(html: string): string {
-  // 如果 HTML 已经包含完整结构，注入缩放样式
-  if (html.includes('<html') || html.includes('<!DOCTYPE')) {
-    // 注入一个 viewport meta 和缩放脚本
-    const scaleScript = `
-<script>
-(function() {
-  var slide = document.querySelector('.slide') || document.body.firstElementChild || document.body;
-  var sw = 1280, sh = 720;
-  function resize() {
-    var w = window.innerWidth, h = window.innerHeight;
-    var scale = Math.min(w / sw, h / sh);
-    slide.style.transform = 'scale(' + scale + ')';
-    slide.style.transformOrigin = 'top left';
-    slide.style.width = sw + 'px';
-    slide.style.height = sh + 'px';
-  }
-  resize();
-  window.addEventListener('resize', resize);
-})();
-</script>`;
-    // 在 </body> 前注入
-    if (html.includes('</body>')) {
-      return html.replace('</body>', scaleScript + '</body>');
-    }
-    return html + scaleScript;
-  }
-  return html;
 }

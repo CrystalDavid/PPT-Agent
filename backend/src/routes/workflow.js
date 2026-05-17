@@ -185,6 +185,18 @@ router.post('/render/page', async (req, res) => {
     if (!session) return res.status(404).json({ error: '会话不存在' });
 
     const html = await renderPage(session, pageNumber);
+
+    // 存储到 session 以便导出使用
+    if (!session.renderedPages) session.renderedPages = [];
+    const existing = session.renderedPages.find(p => p.page_number === pageNumber);
+    if (existing) {
+      existing.html = html;
+    } else {
+      const pages = session.planning?.planning_draft?.pages || session.planning?.pages || [];
+      const pageData = pages.find(p => p.page_number === pageNumber);
+      session.renderedPages.push({ page_number: pageNumber, title: pageData?.title || `第${pageNumber}页`, html });
+    }
+
     res.json({ sessionId: session.id, pageNumber, html });
   } catch (err) {
     console.error('Render page error:', err);
