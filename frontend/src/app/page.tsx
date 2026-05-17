@@ -104,7 +104,6 @@ export default function Home() {
       addLog('info', '底稿已更新');
     } catch (err: unknown) {
       addLog('error', err instanceof Error ? err.message : '修改失败');
-      alert(err instanceof Error ? err.message : '修改底稿失败');
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +126,6 @@ export default function Home() {
       addLog('info', '大纲已生成');
     } catch (err: unknown) {
       addLog('error', err instanceof Error ? err.message : '生成失败');
-      alert(err instanceof Error ? err.message : '生成大纲失败');
     } finally {
       setIsLoading(false);
     }
@@ -143,7 +141,6 @@ export default function Home() {
       addLog('info', '大纲已更新');
     } catch (err: unknown) {
       addLog('error', err instanceof Error ? err.message : '修改失败');
-      alert(err instanceof Error ? err.message : '修改大纲失败');
     } finally {
       setIsLoading(false);
     }
@@ -166,7 +163,6 @@ export default function Home() {
       addLog('info', '策划稿已生成');
     } catch (err: unknown) {
       addLog('error', err instanceof Error ? err.message : '生成失败');
-      alert(err instanceof Error ? err.message : '生成策划稿失败');
     } finally {
       setIsLoading(false);
     }
@@ -182,7 +178,6 @@ export default function Home() {
       addLog('info', `第 ${pageNumber} 页已更新`);
     } catch (err: unknown) {
       addLog('error', err instanceof Error ? err.message : '修改失败');
-      alert(err instanceof Error ? err.message : '修改失败');
     } finally {
       setIsLoading(false);
     }
@@ -198,7 +193,6 @@ export default function Home() {
       addLog('info', '策划稿已整体更新');
     } catch (err: unknown) {
       addLog('error', err instanceof Error ? err.message : '修改失败');
-      alert(err instanceof Error ? err.message : '修改失败');
     } finally {
       setIsLoading(false);
     }
@@ -218,7 +212,6 @@ export default function Home() {
       addLog('info', `渲染完成，共 ${data.pages.length} 页`);
     } catch (err: unknown) {
       addLog('error', err instanceof Error ? err.message : '渲染失败');
-      alert(err instanceof Error ? err.message : '渲染失败');
     } finally {
       setIsLoading(false);
     }
@@ -235,7 +228,6 @@ export default function Home() {
       addLog('info', `PPTX 已生成: ${data.filename}`);
     } catch (err: unknown) {
       addLog('error', err instanceof Error ? err.message : '导出失败');
-      alert(err instanceof Error ? err.message : '导出失败');
     } finally {
       setIsExporting(false);
     }
@@ -251,7 +243,6 @@ export default function Home() {
       addLog('info', `HTML 已生成: ${data.filename}`);
     } catch (err: unknown) {
       addLog('error', err instanceof Error ? err.message : '导出失败');
-      alert(err instanceof Error ? err.message : '导出失败');
     } finally {
       setIsExporting(false);
     }

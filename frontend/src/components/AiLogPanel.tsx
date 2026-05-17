@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 
@@ -18,6 +18,20 @@ interface AiLogPanelProps {
 
 export default function AiLogPanel({ logs, onClear }: AiLogPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // 有错误时自动展开面板
+  useEffect(() => {
+    const lastLog = logs[logs.length - 1];
+    if (lastLog?.type === 'error') {
+      setIsOpen(true);
+    }
+  }, [logs]);
+
+  // 新日志时自动滚动到底部
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
 
   return (
     <>
@@ -85,6 +99,7 @@ export default function AiLogPanel({ logs, onClear }: AiLogPanelProps) {
                   </div>
                 ))
               )}
+              <div ref={bottomRef} />
             </div>
           </motion.aside>
         )}
