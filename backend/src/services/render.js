@@ -61,20 +61,33 @@ async function renderAllPages(session) {
 }
 
 function extractHTML(text) {
-  // 尝试提取 ```html ... ``` 代码块
-  const codeBlock = text.match(/```html\s*([\s\S]*?)```/);
-  if (codeBlock) return codeBlock[1].trim();
+  // 去掉开头可能的文字说明
+  let cleaned = text;
+
+  // 尝试提取 ```html ... ``` 或 ``` ... ``` 代码块
+  const codeBlock = cleaned.match(/```(?:html)?\s*\n?([\s\S]*?)```/);
+  if (codeBlock) {
+    cleaned = codeBlock[1].trim();
+  }
+
+  // 再次清理：去掉开头残留的 ```html 或 ```
+  cleaned = cleaned.replace(/^```(?:html)?\s*\n?/, '').replace(/\n?```\s*$/, '');
 
   // 尝试提取 <!DOCTYPE html> ... </html>
-  const doctype = text.match(/(<!DOCTYPE html>[\s\S]*<\/html>)/i);
+  const doctype = cleaned.match(/(<!DOCTYPE html>[\s\S]*<\/html>)/i);
   if (doctype) return doctype[1].trim();
 
   // 尝试提取 <html> ... </html>
-  const htmlTag = text.match(/(<html[\s\S]*<\/html>)/i);
+  const htmlTag = cleaned.match(/(<html[\s\S]*<\/html>)/i);
   if (htmlTag) return htmlTag[1].trim();
 
-  // 兜底返回原文
-  return text;
+  // 如果包含 <div 或 <body 等标签，可能是片段 HTML
+  if (cleaned.includes('<div') || cleaned.includes('<body')) {
+    return cleaned;
+  }
+
+  // 兜底：包裹成完整 HTML
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:0;padding:40px;font-family:"PingFang SC",sans-serif;background:#1a1a2e;color:#fff;}</style></head><body>${cleaned}</body></html>`;
 }
 
 module.exports = { renderPage, renderAllPages };
