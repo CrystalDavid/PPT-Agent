@@ -1,11 +1,14 @@
 /**
  * 第五阶段：导出 PPTX / PDF 服务
+ *
+ * 策略：用 cheerio 解析渲染好的 HTML，提取文本内容和颜色信息，
+ * 然后用 pptxgenjs 重建为原生 PPTX 幻灯片。
  */
 
 const PptxGenJS = require('pptxgenjs');
+const cheerio = require('cheerio');
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
 
 const OUTPUT_DIR = path.join(__dirname, '../../output');
 
@@ -16,9 +19,124 @@ function ensureOutputDir() {
 }
 
 /**
+ * 从 HTML 中提取背景色
+ */
+function extractBgColor(html) {
+  const $ = cheerio.load(html);
+  // 尝试从 .slide 或 body 的 style 中提取 background
+  const slideEl = $('.slide').first();
+  const bodyEl = $('body').first();
+
+  const slideStyle = slideEl.attr('style') || '';
+  const bodyStyle = bodyEl.attr('style') || '';
+  const allStyles = $('style').text() || '';
+
+  // 从 inline style 提取
+  let bg = extractColorFromStyle(slideStyle, 'background')
+    || extractColorFromStyle(bodyStyle, 'background')
+    || extractColorFromCSS(allStyles, '.slide', 'background')
+    || extractColorFromCSS(allStyles, 'body', 'background');
+
+  if (bg) return bg;
+  return 'FFFFFF'; // 默认白色
+}
+
+function extractColorFromStyle(style, prop) {
+  const match = style.match(new RegExp(prop + '[^:]*:\\s*([^;]+)'));
+  if (match) return cssColorToHex(match[1].trim());
+  return null;
+}
+
+function extractColorFromCSS(css, selector, prop) {
+  // 简单提取，不做完整 CSS 解析
+  const selectorEscaped = selector.replace('.', '\\.');
+  const blockMatch = css.match(new RegExp(selectorEscaped + '\\s*\\{([^}]+)\\}'));
+  if (blockMatch) {
+    return extractColorFromStyle(blockMatch[1], prop);
+  }
+  return null;
+}
+
+function cssColorToHex(color) {
+  color = color.trim().split(/\s+/)[0]; // 取第一个值（忽略 background 简写的其他部分）
+
+  // hex
+  if (color.startsWith('#')) {
+    let hex = color.slice(1);
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    return hex.toUpperCase();
+  }
+
+  // rgb()
+  const rgbMatch = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  if (rgbMatch) {
+    const r = parseInt(rgbMatch[1]).toString(16).padStart(2, '0');
+    const g = parseInt(rgbMatch[2]).toString(16).padStart(2, '0');
+    const b = parseInt(rgbMatch[3]).toString(16).padStart(2, '0');
+    return (r + g + b).toUpperCase();
+  }
+
+  // 常见颜色名
+  const names = {
+    white: 'FFFFFF', black: '000000', red: 'FF0000', blue: '0000FF',
+    green: '008000', navy: '000080', darkblue: '00008B', '#1a1a2e': '1A1A2E',
+  };
+  return names[color.toLowerCase()] || null;
+}
+
+/**
+ * 从 HTML 提取结构化内容用于 PPTX
+ */
+function extractSlideContent(html) {
+  const $ = cheerio.load(html);
+  const slide = $('.slide').first();
+  if (!slide.length) return { title: '', sections: [] };
+
+  const elements = [];
+
+  // 提取所有文本块，保留层级
+  slide.find('h1, h2, h3, h4, h5, h6, p, li, td, th, span, div').each(function() {
+    const el = $(this);
+    const text = el.clone().children().remove().end().text().trim();
+    if (!text) return;
+
+    const tag = this.tagName.toLowerCase();
+    const style = el.attr('style') || '';
+    const parentStyle = el.parent().attr('style') || '';
+
+    let fontSize = 14;
+    let bold = false;
+    let color = null;
+
+    if (tag === 'h1') { fontSize = 28; bold = true; }
+    else if (tag === 'h2') { fontSize = 22; bold = true; }
+    else if (tag === 'h3') { fontSize = 18; bold = true; }
+    else if (tag === 'h4') { fontSize = 16; bold = true; }
+    else if (tag === 'th') { fontSize = 13; bold = true; }
+    else if (tag === 'li' || tag === 'td') { fontSize = 13; }
+    else if (tag === 'p') { fontSize = 14; }
+
+    // 从 style 提取字号
+    const fsMatch = style.match(/font-size:\s*([\d.]+)px/);
+    if (fsMatch) fontSize = Math.round(parseFloat(fsMatch[1]) * 0.75); // px to pt
+
+    // 从 style 提取颜色
+    const colorMatch = style.match(/(?:^|;)\s*color:\s*([^;]+)/);
+    if (colorMatch) color = cssColorToHex(colorMatch[1].trim());
+
+    // 从 style 提取粗体
+    if (style.includes('font-weight') && (style.includes('bold') || style.includes('700') || style.includes('600'))) {
+      bold = true;
+    }
+
+    elements.push({ text, tag, fontSize, bold, color });
+  });
+
+  return elements;
+}
+
+/**
  * 将渲染好的 HTML 页面转为 PPTX
- * 策略：每页作为一个 slide，用 HTML 内容截图嵌入或用文本框重建
- * 这里采用简化方案：将每页 HTML 作为 web object 嵌入 + 文本摘要
  */
 async function exportPptx(session) {
   ensureOutputDir();
@@ -33,54 +151,60 @@ async function exportPptx(session) {
   pptx.author = 'PPT Agent';
   pptx.title = brief?.research_brief?.topic_summary || 'PPT Agent 生成';
 
-  const pages = planning?.planning_draft?.pages || planning?.pages || [];
-
   for (const rendered of renderedPages) {
     const slide = pptx.addSlide();
-    slide.background = { color: '1a1a2e' };
 
-    const pageData = pages.find((p) => p.page_number === rendered.page_number);
+    // 提取背景色
+    const bgColor = extractBgColor(rendered.html);
+    slide.background = { color: bgColor };
 
-    // 标题
-    slide.addText(rendered.title || `第 ${rendered.page_number} 页`, {
-      x: 0.5,
-      y: 0.3,
-      w: 12,
-      h: 0.6,
-      fontSize: 24,
-      bold: true,
-      color: 'FFFFFF',
-      fontFace: 'PingFang SC',
-    });
+    // 提取内容
+    const elements = extractSlideContent(rendered.html);
 
-    // 核心信息
-    if (pageData?.core_messages) {
-      const bulletText = pageData.core_messages.map((msg) => ({
-        text: msg,
-        options: { fontSize: 14, color: 'E0E0E0', bullet: { code: '2022' } },
-      }));
-      slide.addText(bulletText, {
-        x: 0.5,
-        y: 1.2,
-        w: 11.5,
-        h: 4.5,
+    if (elements.length === 0) {
+      // 兜底：如果提取不到内容，用标题 + 策划数据
+      const pageData = (planning?.planning_draft?.pages || planning?.pages || [])
+        .find(p => p.page_number === rendered.page_number);
+
+      slide.addText(rendered.title || `第 ${rendered.page_number} 页`, {
+        x: 0.5, y: 0.5, w: 12, h: 0.8,
+        fontSize: 28, bold: true, color: bgColor === 'FFFFFF' ? '333333' : 'FFFFFF',
         fontFace: 'PingFang SC',
-        valign: 'top',
-        lineSpacingMultiple: 1.5,
       });
+
+      if (pageData?.core_messages) {
+        slide.addText(
+          pageData.core_messages.map(msg => ({ text: msg, options: { bullet: { code: '2022' } } })),
+          { x: 0.5, y: 1.5, w: 12, h: 5, fontSize: 14, color: bgColor === 'FFFFFF' ? '555555' : 'DDDDDD', fontFace: 'PingFang SC', valign: 'top', lineSpacingMultiple: 1.6 }
+        );
+      }
+      continue;
     }
 
-    // 底部标注
-    if (pageData?.visual_type) {
-      slide.addText(`推荐视觉：${pageData.visual_type}`, {
+    // 根据提取的元素构建幻灯片
+    let yPos = 0.4;
+    const defaultColor = bgColor === 'FFFFFF' || bgColor === 'F8FAFC' || bgColor === 'F6F8FB' ? '333333' : 'FFFFFF';
+
+    for (const el of elements) {
+      if (yPos > 6.8) break; // 防止溢出
+
+      const textColor = el.color || defaultColor;
+      const height = el.tag.startsWith('h') ? 0.6 : 0.4;
+
+      slide.addText(el.text, {
         x: 0.5,
-        y: 6.8,
-        w: 12,
-        h: 0.3,
-        fontSize: 10,
-        color: '888888',
+        y: yPos,
+        w: 12.3,
+        h: height,
+        fontSize: el.fontSize,
+        bold: el.bold,
+        color: textColor,
         fontFace: 'PingFang SC',
+        valign: 'middle',
+        wrap: true,
       });
+
+      yPos += height + (el.tag.startsWith('h') ? 0.15 : 0.05);
     }
   }
 
@@ -92,8 +216,7 @@ async function exportPptx(session) {
 }
 
 /**
- * 将 HTML 页面打包为可下载的 HTML 文件（作为 PDF 的替代方案）
- * 真正的 PDF 导出需要 puppeteer，这里先提供 HTML 打包
+ * 导出 HTML 打包文件
  */
 function exportHtmlBundle(session) {
   ensureOutputDir();
@@ -103,10 +226,9 @@ function exportHtmlBundle(session) {
     throw new Error('没有已渲染的页面');
   }
 
-  // 生成一个包含所有页面的 HTML 文件
-  const pagesHtml = renderedPages.map((p, idx) => `
-    <div class="slide-container" id="slide-${p.page_number}">
-      <div class="slide-label">第 ${p.page_number} 页 - ${p.title}</div>
+  const pagesHtml = renderedPages.map((p) => `
+    <div class="slide-wrapper">
+      <div class="slide-label">第 ${p.page_number} 页 — ${p.title}</div>
       <div class="slide-frame">
         <iframe srcdoc="${escapeHtml(p.html)}" width="1280" height="720" frameborder="0"></iframe>
       </div>
@@ -117,18 +239,19 @@ function exportHtmlBundle(session) {
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>PPT Agent - 演示文稿预览</title>
+  <title>PPT Agent - 演示文稿</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0f0f1a; font-family: "PingFang SC", sans-serif; padding: 40px; }
-    .slide-container { margin-bottom: 40px; }
-    .slide-label { color: #888; font-size: 14px; margin-bottom: 8px; }
-    .slide-frame { border-radius: 8px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
-    .slide-frame iframe { display: block; transform-origin: top left; }
+    body { background: #f1f5f9; font-family: "PingFang SC", sans-serif; padding: 40px; }
+    h1 { color: #1e293b; margin-bottom: 32px; font-size: 24px; }
+    .slide-wrapper { margin-bottom: 48px; }
+    .slide-label { color: #64748b; font-size: 14px; margin-bottom: 8px; }
+    .slide-frame { border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.1); background: #fff; }
+    .slide-frame iframe { display: block; }
   </style>
 </head>
 <body>
-  <h1 style="color:#fff;margin-bottom:32px;font-size:24px;">PPT Agent - 全部页面预览</h1>
+  <h1>PPT Agent - 演示文稿预览</h1>
   ${pagesHtml}
 </body>
 </html>`;
