@@ -127,32 +127,14 @@ export default function RenderPanel({ pages, isLoading, sessionId, onPagesUpdate
               </div>
             </div>
 
-            {/* 幻灯片容器 - CSS transform 缩放 */}
+            {/* 幻灯片容器 - 固定 16:9 比例 */}
             <div className="relative w-full rounded-xl overflow-hidden shadow-lg bg-slate-100" style={{ paddingBottom: '56.25%' }}>
-              <div className="absolute inset-0 flex items-start justify-center overflow-hidden">
-                <iframe
-                  srcDoc={page.html}
-                  className="border-0 origin-top-left"
-                  title={`Slide ${page.page_number}`}
-                  sandbox="allow-scripts"
-                  style={{
-                    width: '1280px',
-                    height: '720px',
-                    transform: 'scale(var(--slide-scale, 0.7))',
-                    transformOrigin: 'top left',
-                  }}
-                  ref={(el) => {
-                    if (el) {
-                      const container = el.parentElement;
-                      if (container) {
-                        const scale = container.clientWidth / 1280;
-                        el.style.setProperty('--slide-scale', String(scale));
-                        el.style.transform = `scale(${scale})`;
-                      }
-                    }
-                  }}
-                />
-              </div>
+              <iframe
+                srcDoc={injectScaling(page.html)}
+                className="absolute top-0 left-0 w-full h-full border-0"
+                title={`Slide ${page.page_number}`}
+                sandbox="allow-scripts"
+              />
             </div>
 
             {/* 编辑区域 */}
@@ -209,4 +191,31 @@ export default function RenderPanel({ pages, isLoading, sessionId, onPagesUpdate
       )}
     </div>
   );
+}
+
+/**
+ * 注入缩放逻辑：让 1280×720 的内容自适应 iframe 尺寸
+ */
+function injectScaling(html: string): string {
+  const scaleStyle = `
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+  .slide {
+    width: 1280px;
+    height: 720px;
+    transform-origin: top left;
+    transform: scale(calc(100vw / 1280));
+  }
+</style>`;
+
+  // 在 </head> 前注入
+  if (html.includes('</head>')) {
+    return html.replace('</head>', scaleStyle + '</head>');
+  }
+  // 在 <body> 前注入
+  if (html.includes('<body')) {
+    return html.replace('<body', scaleStyle + '<body');
+  }
+  // 兜底
+  return scaleStyle + html;
 }
