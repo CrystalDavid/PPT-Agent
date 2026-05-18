@@ -5,6 +5,14 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// 防止未捕获异常导致进程退出
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT]', err.message);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('[UNHANDLED REJECTION]', err);
+});
+
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
