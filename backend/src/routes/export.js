@@ -21,7 +21,6 @@ router.get('/download/:filename', (req, res) => {
 
   const ext = path.extname(filename).toLowerCase();
   const mimeTypes = {
-    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     '.html': 'text/html',
     '.pdf': 'application/pdf',
   };

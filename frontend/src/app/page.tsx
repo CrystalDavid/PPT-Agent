@@ -19,8 +19,8 @@ import {
   refinePlanningPage,
   refinePlanningAll,
   renderSinglePage,
-  exportPptx,
   exportHtml,
+  exportPdf,
   type ChatResponse,
   type RenderedPage,
 } from '@/lib/api';
@@ -232,20 +232,15 @@ export default function Home() {
     }
   };
 
-  // 导出
-  const handleExportPptx = async () => {
-    if (!sessionId) return;
-    setIsExporting(true);
-    addLog('request', '导出 PPTX...');
-    try {
-      const data = await exportPptx(sessionId);
-      window.open(data.downloadUrl, '_blank');
-      addLog('info', `PPTX 已生成: ${data.filename}`);
-    } catch (err: unknown) {
-      addLog('error', err instanceof Error ? err.message : '导出失败');
-    } finally {
-      setIsExporting(false);
-    }
+  // 导出 — 通用下载辅助，拼接完整后端地址
+  const downloadFromBackend = (downloadUrl: string) => {
+    const fullUrl = `http://localhost:3001${downloadUrl}`;
+    const a = document.createElement('a');
+    a.href = fullUrl;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   const handleExportHtml = async () => {
@@ -254,8 +249,23 @@ export default function Home() {
     addLog('request', '导出 HTML...');
     try {
       const data = await exportHtml(sessionId);
-      window.open(data.downloadUrl, '_blank');
+      downloadFromBackend(data.downloadUrl);
       addLog('info', `HTML 已生成: ${data.filename}`);
+    } catch (err: unknown) {
+      addLog('error', err instanceof Error ? err.message : '导出失败');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!sessionId) return;
+    setIsExporting(true);
+    addLog('request', '导出 PDF...');
+    try {
+      const data = await exportPdf(sessionId);
+      downloadFromBackend(data.downloadUrl);
+      addLog('info', `PDF 已生成: ${data.filename}`);
     } catch (err: unknown) {
       addLog('error', err instanceof Error ? err.message : '导出失败');
     } finally {
@@ -323,7 +333,7 @@ export default function Home() {
 
           {/* 导出交付 */}
           <div className={activePanel === 'export' ? 'p-6 h-full overflow-y-auto' : 'hidden'}>
-            <ExportPanel isExporting={isExporting} onExportPptx={handleExportPptx} onExportHtml={handleExportHtml} onGoBack={() => setActivePanel('render')} />
+            <ExportPanel isExporting={isExporting} onExportHtml={handleExportHtml} onExportPdf={handleExportPdf} onGoBack={() => setActivePanel('render')} />
           </div>
         </div>
       </main>

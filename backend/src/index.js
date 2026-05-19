@@ -23,6 +23,13 @@ app.use('/api/workflow/render', (req, res, next) => {
   next();
 });
 
+// 导出接口也需要长超时（Puppeteer 截图/PDF 生成）
+app.use('/api/workflow/export', (req, res, next) => {
+  req.setTimeout(300000);
+  res.setTimeout(300000);
+  next();
+});
+
 // Routes
 app.use('/api/workflow', require('./routes/workflow'));
 app.use('/api/export', require('./routes/export'));

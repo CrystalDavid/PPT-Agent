@@ -1,16 +1,16 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ArrowLeft, Download, FileText, Globe } from 'lucide-react';
+import { ArrowLeft, Download, Globe, File } from 'lucide-react';
 
 interface ExportPanelProps {
   isExporting: boolean;
-  onExportPptx: () => void;
   onExportHtml: () => void;
+  onExportPdf: () => void;
   onGoBack: () => void;
 }
 
-export default function ExportPanel({ isExporting, onExportPptx, onExportHtml, onGoBack }: ExportPanelProps) {
+export default function ExportPanel({ isExporting, onExportHtml, onExportPdf, onGoBack }: ExportPanelProps) {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
@@ -23,18 +23,18 @@ export default function ExportPanel({ isExporting, onExportPptx, onExportHtml, o
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
         <p className="text-sm text-slate-500">页面效果已确认，选择导出格式：</p>
 
-        {/* PPTX */}
+        {/* PDF */}
         <button
-          onClick={onExportPptx}
+          onClick={onExportPdf}
           disabled={isExporting}
           className="w-full flex items-center gap-4 p-5 bg-white border border-slate-200 rounded-xl hover:border-primary-300 hover:shadow-sm transition-all disabled:opacity-50 text-left"
         >
-          <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center shrink-0">
-            <FileText size={24} className="text-orange-500" />
+          <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
+            <File size={24} className="text-red-500" />
           </div>
           <div className="flex-1">
-            <div className="text-sm font-semibold text-slate-800">下载 PPTX</div>
-            <div className="text-xs text-slate-500 mt-0.5">可编辑的 PowerPoint 文件，可在 Office 中继续修改</div>
+            <div className="text-sm font-semibold text-slate-800">下载 PDF</div>
+            <div className="text-xs text-slate-500 mt-0.5">高保真 PDF 文件，适合打印和分享，视觉效果与预览一致</div>
           </div>
           <Download size={18} className="text-slate-400" />
         </button>

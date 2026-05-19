@@ -8,14 +8,15 @@ const API = 'http://localhost:3001/api/workflow';
 /**
  * 带重试的 fetch 封装
  */
-async function fetchWithRetry(url: string, options: RequestInit, retries = 2): Promise<Response> {
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3): Promise<Response> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await globalThis.fetch(url, options);
       return res;
     } catch (err) {
       if (attempt < retries) {
-        await new Promise(r => setTimeout(r, 2000));
+        const delay = Math.min(3000 * Math.pow(2, attempt), 15000);
+        await new Promise(r => setTimeout(r, delay));
         continue;
       }
       throw err;
@@ -199,8 +200,8 @@ export async function modifyRenderedPage(sessionId: string, pageNumber: number, 
   return res.json();
 }
 
-export async function exportPptx(sessionId: string): Promise<ExportResponse> {
-  const res = await fetchWithRetry(`http://localhost:3001/api/workflow/export/pptx`, {
+export async function exportHtml(sessionId: string): Promise<ExportResponse> {
+  const res = await fetchWithRetry(`http://localhost:3001/api/workflow/export/html`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId }),
@@ -212,8 +213,8 @@ export async function exportPptx(sessionId: string): Promise<ExportResponse> {
   return res.json();
 }
 
-export async function exportHtml(sessionId: string): Promise<ExportResponse> {
-  const res = await fetchWithRetry(`http://localhost:3001/api/workflow/export/html`, {
+export async function exportPdf(sessionId: string): Promise<ExportResponse> {
+  const res = await fetchWithRetry(`http://localhost:3001/api/workflow/export/pdf`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId }),

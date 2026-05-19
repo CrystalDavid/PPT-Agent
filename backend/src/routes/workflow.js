@@ -6,7 +6,7 @@ const { handleInterviewMessage } = require('../services/interview');
 const { generateOutline, refineOutline } = require('../services/outline');
 const { generatePlanning, refinePlanningPage } = require('../services/planning');
 const { renderPage, renderAllPages, modifyPage } = require('../services/render');
-const { exportPptx, exportHtmlBundle } = require('../services/export');
+const { exportPdf, exportHtmlBundle } = require('../services/export');
 
 // ============================================================
 // 统一对话入口
@@ -222,21 +222,6 @@ router.post('/render/modify', async (req, res) => {
 // ============================================================
 // Step 5: 导出
 // ============================================================
-router.post('/export/pptx', async (req, res) => {
-  try {
-    const { sessionId } = req.body;
-    const session = getSession(sessionId);
-    if (!session) return res.status(404).json({ error: '会话不存在' });
-    if (!session.renderedPages) return res.status(400).json({ error: '请先渲染页面' });
-
-    const { filename, filepath } = await exportPptx(session);
-    res.json({ sessionId: session.id, filename, downloadUrl: `/api/export/download/${filename}` });
-  } catch (err) {
-    console.error('Export PPTX error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 router.post('/export/html', async (req, res) => {
   try {
     const { sessionId } = req.body;
@@ -248,6 +233,21 @@ router.post('/export/html', async (req, res) => {
     res.json({ sessionId: session.id, filename, downloadUrl: `/api/export/download/${filename}` });
   } catch (err) {
     console.error('Export HTML error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/export/pdf', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    const session = getSession(sessionId);
+    if (!session) return res.status(404).json({ error: '会话不存在' });
+    if (!session.renderedPages) return res.status(400).json({ error: '请先渲染页面' });
+
+    const { filename, filepath } = await exportPdf(session);
+    res.json({ sessionId: session.id, filename, downloadUrl: `/api/export/download/${filename}` });
+  } catch (err) {
+    console.error('Export PDF error:', err);
     res.status(500).json({ error: err.message });
   }
 });
