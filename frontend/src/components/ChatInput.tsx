@@ -1,45 +1,68 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Send } from 'lucide-react';
 
 interface ChatInputProps {
   onSend: (content: string) => void;
   disabled?: boolean;
+  className?: string;
 }
 
-export default function ChatInput({ onSend, disabled }: ChatInputProps) {
+export default function ChatInput({ onSend, disabled, className = '' }: ChatInputProps) {
   const [value, setValue] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = '0px';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 180)}px`;
+  }, [value]);
+
+  const submit = () => {
     const trimmed = value.trim();
     if (!trimmed || disabled) return;
     onSend(trimmed);
     setValue('');
   };
 
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    submit();
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submit();
+    }
+  };
+
   return (
     <motion.form
       onSubmit={handleSubmit}
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative"
+      className={`mx-auto w-full max-w-3xl ${className}`}
     >
-      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-sm focus-within:border-primary-400 focus-within:shadow-md transition-all">
-        <input
-          type="text"
+      <div className="flex items-end gap-3 rounded-[28px] border border-slate-200 bg-white px-5 py-3 shadow-sm transition-all focus-within:border-blue-300 focus-within:shadow-md">
+        <textarea
+          ref={textareaRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="描述你想做的演示，例如：帮我做一个大模型基线对比的汇报..."
-          className="flex-1 outline-none text-base text-slate-700 placeholder:text-slate-400 bg-transparent"
+          onKeyDown={handleKeyDown}
+          placeholder="输入你的演示文稿主题吧~"
+          rows={1}
+          className="max-h-[180px] min-h-[32px] flex-1 resize-none overflow-y-auto bg-transparent py-1 text-base leading-7 text-slate-700 outline-none placeholder:text-slate-400"
           disabled={disabled}
         />
         <button
           type="submit"
           disabled={disabled || !value.trim()}
-          className="p-2 rounded-xl bg-primary-600 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary-700 transition-colors"
+          className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-35"
+          title="发送"
         >
           <Send size={18} />
         </button>

@@ -47,6 +47,14 @@ export interface Message {
 }
 
 const workflowStages: WorkflowStage[] = ['interview', 'brief', 'outline', 'planning', 'render', 'export'];
+const stageLabels: Record<WorkflowStage, string> = {
+  interview: '需求访谈',
+  brief: '调研底稿',
+  outline: '大纲',
+  planning: '策划稿',
+  render: 'SVG 预览',
+  export: '导出交付',
+};
 
 export default function Home() {
   const [showWelcome, setShowWelcome] = useState(true);
@@ -136,6 +144,7 @@ export default function Home() {
 
   const handleStageClick = (clickedStage: WorkflowStage) => {
     setActivePanel(clickedStage);
+    addLog('info', `切换到：${stageLabels[clickedStage]}`);
   };
 
   const handleSend = async (content: string) => {
@@ -180,6 +189,7 @@ export default function Home() {
   };
 
   const handleConfirmBrief = () => {
+    addLog('info', '确认调研底稿，进入大纲阶段');
     setStage('outline');
     setActivePanel('outline');
     if (!outline) handleGenerateOutline();
@@ -217,6 +227,7 @@ export default function Home() {
   };
 
   const handleConfirmOutline = () => {
+    addLog('info', '确认大纲，进入策划稿阶段');
     setStage('planning');
     setActivePanel('planning');
     if (!planning) handleGeneratePlanning();
@@ -406,17 +417,19 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto px-6 py-6">
               {messages.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-center">
-                  <h2 className="mb-2 text-2xl font-semibold text-slate-800">开始创建你的演示文稿</h2>
-                  <p className="max-w-md text-slate-500">告诉我你想做什么 PPT，我会通过几轮对话帮你理清思路。</p>
+                  <h2 className="mb-8 text-3xl font-normal text-slate-800">开始创建你的演示文稿</h2>
+                  <ChatInput onSend={handleSend} disabled={isLoading} />
                 </div>
               ) : (
                 <ChatArea messages={messages} isLoading={isLoading} />
               )}
               <div ref={bottomRef} />
             </div>
-            <div className="shrink-0 px-6 pb-6">
-              <ChatInput onSend={handleSend} disabled={isLoading} />
-            </div>
+            {messages.length > 0 && (
+              <div className="shrink-0 px-6 pb-6">
+                <ChatInput onSend={handleSend} disabled={isLoading} />
+              </div>
+            )}
           </div>
 
           <div className={activePanel === 'brief' ? 'h-full overflow-y-auto p-6' : 'hidden'}>
@@ -458,7 +471,8 @@ export default function Home() {
               isLoading={isLoading}
               sessionId={sessionId}
               onPagesUpdate={setRenderedPages}
-              onConfirm={() => { setStage('export'); setActivePanel('export'); }}
+              onLog={addLog}
+              onConfirm={() => { addLog('info', '确认 SVG 预览效果，进入导出交付'); setStage('export'); setActivePanel('export'); }}
               onGoBack={() => setActivePanel('planning')}
             />
           </div>

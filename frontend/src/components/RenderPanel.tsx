@@ -11,11 +11,12 @@ interface RenderPanelProps {
   isLoading: boolean;
   sessionId: string | null;
   onPagesUpdate: (pages: RenderedPage[]) => void;
+  onLog: (type: 'request' | 'response' | 'info' | 'error', content: string) => void;
   onConfirm: () => void;
   onGoBack: () => void;
 }
 
-export default function RenderPanel({ pages, isLoading, sessionId, onPagesUpdate, onConfirm, onGoBack }: RenderPanelProps) {
+export default function RenderPanel({ pages, isLoading, sessionId, onPagesUpdate, onLog, onConfirm, onGoBack }: RenderPanelProps) {
   const [editingPage, setEditingPage] = useState<number | null>(null);
   const [feedback, setFeedback] = useState('');
   const [modifying, setModifying] = useState(false);
@@ -49,14 +50,17 @@ export default function RenderPanel({ pages, isLoading, sessionId, onPagesUpdate
   const handleModify = async (pageNumber: number) => {
     if (!sessionId || !feedback.trim()) return;
     setModifying(true);
+    onLog('request', `修改第 ${pageNumber} 页 SVG：${feedback.trim()}`);
     try {
       const result = await modifyRenderedPage(sessionId, pageNumber, feedback.trim());
       const updated = pages.map(p => p.page_number === pageNumber ? { ...p, svg: result.svg, html: result.html } : p);
       onPagesUpdate(updated);
       setEditingPage(null);
       setFeedback('');
+      onLog('info', `第 ${pageNumber} 页 SVG 修改完成`);
     } catch (err) {
       console.error(err);
+      onLog('error', `第 ${pageNumber} 页 SVG 修改失败：${err instanceof Error ? err.message : '未知错误'}`);
     } finally {
       setModifying(false);
     }
@@ -65,12 +69,15 @@ export default function RenderPanel({ pages, isLoading, sessionId, onPagesUpdate
   const handleRegenerate = async (pageNumber: number) => {
     if (!sessionId) return;
     setModifying(true);
+    onLog('request', `重新生成第 ${pageNumber} 页 SVG...`);
     try {
       const result = await renderSinglePage(sessionId, pageNumber);
       const updated = pages.map(p => p.page_number === pageNumber ? { ...p, svg: result.svg, html: result.html } : p);
       onPagesUpdate(updated);
+      onLog('info', `第 ${pageNumber} 页 SVG 重新生成完成`);
     } catch (err) {
       console.error(err);
+      onLog('error', `第 ${pageNumber} 页 SVG 重新生成失败：${err instanceof Error ? err.message : '未知错误'}`);
     } finally {
       setModifying(false);
     }
@@ -117,7 +124,7 @@ export default function RenderPanel({ pages, isLoading, sessionId, onPagesUpdate
                   重新生成
                 </button>
                 <button
-                  onClick={() => { setEditingPage(page.page_number); setFeedback(''); }}
+                  onClick={() => { setEditingPage(page.page_number); setFeedback(''); onLog('info', `打开第 ${page.page_number} 页修改框`); }}
                   disabled={modifying}
                   className="flex items-center gap-1 px-2 py-1 text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50"
                 >
