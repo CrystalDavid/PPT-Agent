@@ -145,11 +145,13 @@ async function extractValidateOrRepair(text, context) {
   let svg = normalizeSvgTextBoxes(sanitizeSvg(extractSVG(text)));
   let errors = validateSVG(svg);
   if (errors.length === 0) return svg;
+  let hardErrors = errors.filter(error => !isSoftLayoutWarning(error));
+  if (hardErrors.length === 0) return svg;
 
   const repairPrompt = `下面的 SVG 不符合可编辑 PPTX 导出规范，请只输出修复后的完整 SVG。
 
 错误：
-${errors.map(e => `- ${e}`).join('\n')}
+${hardErrors.map(e => `- ${e}`).join('\n')}
 
 硬性要求：
 - 1280×720，viewBox="0 0 1280 720"
@@ -169,7 +171,10 @@ ${svg}`;
   svg = normalizeSvgTextBoxes(sanitizeSvg(extractSVG(repaired)));
   errors = validateSVG(svg);
   if (errors.length > 0) {
-    throw new Error(`SVG 生成不符合导出规范：${errors.join('；')}`);
+    hardErrors = errors.filter(error => !isSoftLayoutWarning(error));
+    if (hardErrors.length > 0) {
+      throw new Error(`SVG 生成不符合导出规范：${hardErrors.join('；')}`);
+    }
   }
   return svg;
 }
@@ -423,6 +428,10 @@ function validateTextLayout(svg, errors) {
       }
     }
   }
+}
+
+function isSoftLayoutWarning(error) {
+  return /可能重叠/.test(String(error || ''));
 }
 
 function getTextRects(svg) {
