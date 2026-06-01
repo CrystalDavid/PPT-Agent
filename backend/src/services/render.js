@@ -216,8 +216,54 @@ function normalizeSvgTextBoxes(svg) {
       nextAttrs += ` data-h="${estimateTextHeight(fontSize, lineCount)}"`;
     }
 
+    nextAttrs = constrainTextBoxAttrs(nextAttrs, content);
+
     return `<text${nextAttrs}>${content}</text>`;
   });
+}
+
+function constrainTextBoxAttrs(attrs, content) {
+  let nextAttrs = attrs || '';
+  const fontSize = readFontSize(nextAttrs);
+  const anchor = String(getSvgAttr(nextAttrs, 'text-anchor') || 'start').toLowerCase();
+  const safe = { left: 56, top: 42, right: 1224, bottom: 674 };
+  const safeW = safe.right - safe.left;
+  const safeH = safe.bottom - safe.top;
+
+  let x = parseFloat(getSvgAttr(nextAttrs, 'x'));
+  let y = parseFloat(getSvgAttr(nextAttrs, 'y'));
+  let w = parseFloat(getSvgAttr(nextAttrs, 'data-w'));
+  let h = parseFloat(getSvgAttr(nextAttrs, 'data-h'));
+
+  if (!Number.isFinite(x)) x = safe.left;
+  if (!Number.isFinite(y)) y = safe.top + fontSize * 0.9;
+  if (!Number.isFinite(w) || w <= 0) w = estimateTextWidth(nextAttrs, content, fontSize);
+  if (!Number.isFinite(h) || h <= 0) h = estimateTextHeight(fontSize, getTextLineCount(content));
+
+  w = clamp(Math.round(w), 24, safeW);
+  h = clamp(Math.round(h), Math.ceil(fontSize * 1.1), safeH);
+
+  let left = textLeftFromAnchor(x, w, anchor);
+  if (left < safe.left) x += safe.left - left;
+  left = textLeftFromAnchor(x, w, anchor);
+  if (left + w > safe.right) x -= left + w - safe.right;
+
+  let top = y - fontSize * 0.9;
+  if (top < safe.top) y += safe.top - top;
+  top = y - fontSize * 0.9;
+  if (top + h > safe.bottom) y -= top + h - safe.bottom;
+
+  nextAttrs = setSvgAttr(nextAttrs, 'x', round1(x));
+  nextAttrs = setSvgAttr(nextAttrs, 'y', round1(y));
+  nextAttrs = setSvgAttr(nextAttrs, 'data-w', Math.round(w));
+  nextAttrs = setSvgAttr(nextAttrs, 'data-h', Math.round(h));
+  return nextAttrs;
+}
+
+function textLeftFromAnchor(x, w, anchor) {
+  if (anchor === 'middle') return x - w / 2;
+  if (anchor === 'end') return x - w;
+  return x;
 }
 
 function hasSvgAttr(attrs, name) {
@@ -227,6 +273,13 @@ function hasSvgAttr(attrs, name) {
 function getSvgAttr(attrs, name) {
   const match = String(attrs || '').match(new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*["']([^"']+)["']`, 'i'));
   return match ? match[1] : null;
+}
+
+function setSvgAttr(attrs, name, value) {
+  const attr = `${name}="${value}"`;
+  const pattern = new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*["'][^"']*["']`, 'i');
+  if (pattern.test(attrs || '')) return String(attrs || '').replace(pattern, attr);
+  return `${attrs || ''} ${attr}`;
 }
 
 function readFontSize(attrs) {
@@ -294,6 +347,10 @@ function estimateLineWidth(line, fontSize) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function round1(value) {
+  return Math.round(value * 10) / 10;
 }
 
 function escapeRegExp(value) {
