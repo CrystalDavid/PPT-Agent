@@ -142,7 +142,7 @@ function buildDeckContext(session, pageNumber) {
 }
 
 async function extractValidateOrRepair(text, context) {
-  let svg = sanitizeSvg(extractSVG(text));
+  let svg = normalizeSvgTextBoxes(sanitizeSvg(extractSVG(text)));
   let errors = validateSVG(svg);
   if (errors.length === 0) return svg;
 
@@ -166,7 +166,7 @@ ${svg}`;
     { role: 'user', content: repairPrompt },
   ], { temperature: 0.18, maxTokens: 7000, retries: 2 });
 
-  svg = sanitizeSvg(extractSVG(repaired));
+  svg = normalizeSvgTextBoxes(sanitizeSvg(extractSVG(repaired)));
   errors = validateSVG(svg);
   if (errors.length > 0) {
     throw new Error(`SVG 生成不符合导出规范：${errors.join('；')}`);
@@ -198,6 +198,106 @@ function sanitizeSvg(svg) {
     .replace(/&copy;/g, '©')
     .replace(/&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9a-fA-F]+;)/g, '&amp;')
     .trim();
+}
+
+function normalizeSvgTextBoxes(svg) {
+  return String(svg || '').replace(/<text\b([^>]*)>([\s\S]*?)<\/text>/gi, (match, attrs, content) => {
+    let nextAttrs = attrs || '';
+    const fontSize = readFontSize(nextAttrs);
+    const lineCount = getTextLineCount(content);
+
+    if (!hasSvgAttr(nextAttrs, 'font-family')) {
+      nextAttrs += ' font-family="Microsoft YaHei"';
+    }
+    if (!hasSvgAttr(nextAttrs, 'data-w')) {
+      nextAttrs += ` data-w="${estimateTextWidth(nextAttrs, content, fontSize)}"`;
+    }
+    if (!hasSvgAttr(nextAttrs, 'data-h')) {
+      nextAttrs += ` data-h="${estimateTextHeight(fontSize, lineCount)}"`;
+    }
+
+    return `<text${nextAttrs}>${content}</text>`;
+  });
+}
+
+function hasSvgAttr(attrs, name) {
+  return new RegExp(`\\b${escapeRegExp(name)}\\s*=`, 'i').test(attrs || '');
+}
+
+function getSvgAttr(attrs, name) {
+  const match = String(attrs || '').match(new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*["']([^"']+)["']`, 'i'));
+  return match ? match[1] : null;
+}
+
+function readFontSize(attrs) {
+  const attrSize = parseFloat(getSvgAttr(attrs, 'font-size'));
+  if (Number.isFinite(attrSize) && attrSize > 0) return attrSize;
+
+  const style = getSvgAttr(attrs, 'style') || '';
+  const styleMatch = style.match(/font-size\s*:\s*([\d.]+)/i);
+  const styleSize = styleMatch ? parseFloat(styleMatch[1]) : NaN;
+  return Number.isFinite(styleSize) && styleSize > 0 ? styleSize : 18;
+}
+
+function getTextLineCount(content) {
+  const tspans = String(content || '').match(/<tspan\b[^>]*>/gi);
+  return Math.max(1, tspans ? tspans.length : 1);
+}
+
+function estimateTextWidth(attrs, content, fontSize) {
+  const x = parseFloat(getSvgAttr(attrs, 'x'));
+  const anchor = String(getSvgAttr(attrs, 'text-anchor') || 'start').toLowerCase();
+  const safeX = Number.isFinite(x) ? x : 64;
+  const lines = extractPlainTextLines(content);
+  const textWidth = Math.max(...lines.map(line => estimateLineWidth(line, fontSize)), fontSize * 2);
+
+  let available = 1224 - safeX;
+  if (anchor === 'middle') available = Math.min(safeX - 56, 1224 - safeX) * 2;
+  if (anchor === 'end') available = safeX - 56;
+
+  const maxWidth = Math.max(80, Math.floor(available));
+  return clamp(Math.ceil(textWidth + 18), 48, maxWidth);
+}
+
+function estimateTextHeight(fontSize, lineCount) {
+  return Math.ceil(Math.max(fontSize * 1.35 * Math.max(1, lineCount), 22));
+}
+
+function extractPlainTextLines(content) {
+  const lines = [];
+  String(content || '').replace(/<tspan\b[^>]*>([\s\S]*?)<\/tspan>/gi, (_, inner) => {
+    lines.push(stripSvgTags(inner));
+    return '';
+  });
+  if (lines.length === 0) lines.push(stripSvgTags(content));
+  return lines.map(line => line.trim()).filter(Boolean).length > 0 ? lines : [''];
+}
+
+function stripSvgTags(value) {
+  return String(value || '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
+function estimateLineWidth(line, fontSize) {
+  return Array.from(String(line || '')).reduce((sum, ch) => {
+    if (/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch)) return sum + fontSize;
+    if (/\s/.test(ch)) return sum + fontSize * 0.32;
+    if (/[A-Z0-9]/.test(ch)) return sum + fontSize * 0.62;
+    return sum + fontSize * 0.54;
+  }, 0);
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function validateSVG(svg) {
