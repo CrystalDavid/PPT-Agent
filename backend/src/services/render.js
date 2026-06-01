@@ -153,9 +153,9 @@ ${errors.map(e => `- ${e}`).join('\n')}
 
 硬性要求：
 - 1280×720，viewBox="0 0 1280 720"
-- 只用 svg/g/rect/circle/ellipse/line/text/tspan
+- 优先用 svg/g/rect/circle/ellipse/line/text/tspan，可用少量 path/polygon/polyline 做装饰和抽象图形
 - 每个 text 必须有 data-w 和 data-h
-- 不能有文字重叠、溢出、乱码风险
+- 不能有文字重叠、文字越界、图案遮挡正文、乱码风险
 - 不要输出解释文字
 
 待修复 SVG：
@@ -338,8 +338,67 @@ function validateSVG(svg) {
       errors.push(`第 ${index + 1} 个 text 字体必须使用 Microsoft YaHei 或 Arial`);
     }
   });
+  validateTextLayout(svg, errors);
 
   return [...new Set(errors)].slice(0, 12);
+}
+
+function validateTextLayout(svg, errors) {
+  const rects = getTextRects(svg);
+
+  rects.forEach((rect) => {
+    if (rect.x < 40 || rect.y < 24 || rect.x + rect.w > 1240 || rect.y + rect.h > 696) {
+      errors.push(`第 ${rect.index} 个 text 文本框超出安全范围`);
+    }
+  });
+
+  for (let i = 0; i < rects.length; i += 1) {
+    for (let j = i + 1; j < rects.length; j += 1) {
+      const a = rects[i];
+      const b = rects[j];
+      const overlap = overlapArea(a, b);
+      if (overlap <= 0) continue;
+
+      const minArea = Math.min(a.w * a.h, b.w * b.h);
+      const vertical = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+      if (minArea > 0 && overlap / minArea > 0.45 && vertical > Math.min(a.h, b.h) * 0.45) {
+        errors.push(`第 ${a.index} 个 text 与第 ${b.index} 个 text 可能重叠`);
+      }
+    }
+  }
+}
+
+function getTextRects(svg) {
+  const rects = [];
+  let index = 0;
+  String(svg || '').replace(/<text\b([^>]*)>([\s\S]*?)<\/text>/gi, (_, attrs, content) => {
+    index += 1;
+    const fontSize = readFontSize(attrs);
+    const dataW = parseFloat(getSvgAttr(attrs, 'data-w'));
+    const dataH = parseFloat(getSvgAttr(attrs, 'data-h'));
+    const x = parseFloat(getSvgAttr(attrs, 'x'));
+    const y = parseFloat(getSvgAttr(attrs, 'y'));
+    if (![dataW, dataH, x, y].every(Number.isFinite)) return '';
+
+    const anchor = String(getSvgAttr(attrs, 'text-anchor') || 'start').toLowerCase();
+    let left = x;
+    if (anchor === 'middle') left = x - dataW / 2;
+    if (anchor === 'end') left = x - dataW;
+
+    const top = y - fontSize * 0.9;
+    const text = extractPlainTextLines(content).join(' ').trim();
+    if (!text) return '';
+
+    rects.push({ index, x: left, y: top, w: dataW, h: dataH });
+    return '';
+  });
+  return rects;
+}
+
+function overlapArea(a, b) {
+  const x = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+  const y = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+  return x * y;
 }
 
 function svgToHtml(svg) {
