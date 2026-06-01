@@ -4,6 +4,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { exportSvgPagesToPptx } = require('./svgPptx');
 
 const OUTPUT_DIR = path.join(__dirname, '../../output');
 
@@ -163,6 +164,33 @@ function exportHtmlBundle(session) {
 }
 
 // ============================================================
+// PPTX 导出（SVG → DrawingML 原生可编辑对象）
+// ============================================================
+
+async function exportPptx(session) {
+  ensureOutputDir();
+
+  const { renderedPages } = session;
+  if (!renderedPages || renderedPages.length === 0) {
+    throw new Error('没有已渲染的页面');
+  }
+
+  const pages = renderedPages.map((page) => {
+    const svg = page.svg || extractSvg(page.html);
+    if (!svg) {
+      throw new Error(`第 ${page.page_number} 页缺少 SVG 内容`);
+    }
+    return { ...page, svg };
+  });
+
+  const filename = `ppt-agent-${session.id.substring(0, 8)}-${Date.now()}.pptx`;
+  const filepath = path.join(OUTPUT_DIR, filename);
+  await exportSvgPagesToPptx(pages, filepath);
+
+  return { filename, filepath };
+}
+
+// ============================================================
 // 辅助函数
 // ============================================================
 
@@ -174,4 +202,9 @@ function escapeHtml(html) {
     .replace(/>/g, '&gt;');
 }
 
-module.exports = { exportPdf, exportHtmlBundle };
+function extractSvg(html) {
+  const match = String(html || '').match(/(<svg[\s\S]*<\/svg>)/i);
+  return match ? match[1] : '';
+}
+
+module.exports = { exportPdf, exportHtmlBundle, exportPptx };

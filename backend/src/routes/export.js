@@ -23,6 +23,7 @@ router.get('/download/:filename', (req, res) => {
   const mimeTypes = {
     '.html': 'text/html',
     '.pdf': 'application/pdf',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   };
 
   res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');

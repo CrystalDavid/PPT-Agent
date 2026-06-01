@@ -21,6 +21,8 @@ import {
   renderSinglePage,
   exportHtml,
   exportPdf,
+  exportPptx,
+  BACKEND_ORIGIN,
   type ChatResponse,
   type RenderedPage,
 } from '@/lib/api';
@@ -206,7 +208,7 @@ export default function Home() {
     setIsLoading(true);
     setStage('render');
     setActivePanel('render');
-    addLog('request', '开始逐页渲染...');
+    addLog('request', '开始逐页生成 SVG...');
 
     const planData = (planning as { planning_draft?: { pages: { page_number: number; title: string }[] } }).planning_draft || planning as { pages: { page_number: number; title: string }[] };
     const pageList = Array.isArray((planData as Record<string, unknown>).pages) ? (planData as { pages: { page_number: number; title: string }[] }).pages : [];
@@ -214,15 +216,15 @@ export default function Home() {
     const rendered: RenderedPage[] = [];
     try {
       for (const page of pageList) {
-        addLog('info', `渲染第 ${page.page_number} 页: ${page.title}...`);
+        addLog('info', `生成第 ${page.page_number} 页 SVG: ${page.title}...`);
         const result = await renderSinglePage(sessionId, page.page_number);
-        rendered.push({ page_number: page.page_number, title: page.title, html: result.html });
+        rendered.push({ page_number: page.page_number, title: page.title, svg: result.svg, html: result.html });
         setRenderedPages([...rendered]); // 逐页更新，用户可以实时看到
       }
       setStage('export');
-      addLog('info', `渲染完成，共 ${rendered.length} 页`);
+      addLog('info', `SVG 生成完成，共 ${rendered.length} 页`);
     } catch (err: unknown) {
-      addLog('error', `渲染第 ${rendered.length + 1} 页失败: ${err instanceof Error ? err.message : '未知错误'}`);
+      addLog('error', `生成第 ${rendered.length + 1} 页 SVG 失败: ${err instanceof Error ? err.message : '未知错误'}`);
       if (rendered.length > 0) {
         addLog('info', `已成功渲染 ${rendered.length} 页，可以先预览已完成的部分`);
         setStage('export');
@@ -234,7 +236,7 @@ export default function Home() {
 
   // 导出 — 通用下载辅助，拼接完整后端地址
   const downloadFromBackend = (downloadUrl: string) => {
-    const fullUrl = `http://localhost:3001${downloadUrl}`;
+    const fullUrl = `${BACKEND_ORIGIN}${downloadUrl}`;
     const a = document.createElement('a');
     a.href = fullUrl;
     a.download = '';
@@ -266,6 +268,21 @@ export default function Home() {
       const data = await exportPdf(sessionId);
       downloadFromBackend(data.downloadUrl);
       addLog('info', `PDF 已生成: ${data.filename}`);
+    } catch (err: unknown) {
+      addLog('error', err instanceof Error ? err.message : '导出失败');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportPptx = async () => {
+    if (!sessionId) return;
+    setIsExporting(true);
+    addLog('request', '导出可编辑 PPTX...');
+    try {
+      const data = await exportPptx(sessionId);
+      downloadFromBackend(data.downloadUrl);
+      addLog('info', `PPTX 已生成: ${data.filename}`);
     } catch (err: unknown) {
       addLog('error', err instanceof Error ? err.message : '导出失败');
     } finally {
@@ -333,7 +350,7 @@ export default function Home() {
 
           {/* 导出交付 */}
           <div className={activePanel === 'export' ? 'p-6 h-full overflow-y-auto' : 'hidden'}>
-            <ExportPanel isExporting={isExporting} onExportHtml={handleExportHtml} onExportPdf={handleExportPdf} onGoBack={() => setActivePanel('render')} />
+            <ExportPanel isExporting={isExporting} onExportHtml={handleExportHtml} onExportPdf={handleExportPdf} onExportPptx={handleExportPptx} onGoBack={() => setActivePanel('render')} />
           </div>
         </div>
       </main>

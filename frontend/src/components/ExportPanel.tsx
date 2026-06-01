@@ -1,16 +1,17 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ArrowLeft, Download, Globe, File } from 'lucide-react';
+import { ArrowLeft, Download, Globe, File, Presentation } from 'lucide-react';
 
 interface ExportPanelProps {
   isExporting: boolean;
   onExportHtml: () => void;
   onExportPdf: () => void;
+  onExportPptx: () => void;
   onGoBack: () => void;
 }
 
-export default function ExportPanel({ isExporting, onExportHtml, onExportPdf, onGoBack }: ExportPanelProps) {
+export default function ExportPanel({ isExporting, onExportHtml, onExportPdf, onExportPptx, onGoBack }: ExportPanelProps) {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
@@ -22,6 +23,22 @@ export default function ExportPanel({ isExporting, onExportHtml, onExportPdf, on
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
         <p className="text-sm text-slate-500">页面效果已确认，选择导出格式：</p>
+
+        {/* PPTX */}
+        <button
+          onClick={onExportPptx}
+          disabled={isExporting}
+          className="w-full flex items-center gap-4 p-5 bg-white border border-primary-200 rounded-xl hover:border-primary-400 hover:shadow-sm transition-all disabled:opacity-50 text-left"
+        >
+          <div className="w-12 h-12 bg-primary-50 rounded-xl flex items-center justify-center shrink-0">
+            <Presentation size={24} className="text-primary-600" />
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-slate-800">下载可编辑 PPTX</div>
+            <div className="text-xs text-slate-500 mt-0.5">SVG 转 PowerPoint 原生对象，文字和主要图形可继续编辑</div>
+          </div>
+          <Download size={18} className="text-slate-400" />
+        </button>
 
         {/* PDF */}
         <button

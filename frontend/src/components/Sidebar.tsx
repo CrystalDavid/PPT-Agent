@@ -9,7 +9,7 @@ const steps: { key: WorkflowStage; label: string; icon: typeof FileText }[] = [
   { key: 'brief', label: '调研底稿', icon: ClipboardList },
   { key: 'outline', label: '大纲', icon: List },
   { key: 'planning', label: '策划稿', icon: LayoutGrid },
-  { key: 'render', label: '页面渲染', icon: Monitor },
+  { key: 'render', label: 'SVG 预览', icon: Monitor },
   { key: 'export', label: '导出交付', icon: Download },
 ];
 
