@@ -52,8 +52,8 @@ export default function AiLogPanel({ logs }: AiLogPanelProps) {
             transition={{ duration: 0.22, ease: 'easeOut' }}
             className="z-20 flex h-screen shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-white"
           >
-            <div className="flex h-16 shrink-0 items-center justify-between px-5">
-              <span className="text-lg font-semibold text-slate-900">AI 日志</span>
+            <div className="flex h-24 shrink-0 items-center justify-between px-6">
+              <span className="text-2xl font-semibold text-slate-900">AI 日志</span>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}

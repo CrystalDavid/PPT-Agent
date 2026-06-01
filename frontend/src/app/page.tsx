@@ -418,7 +418,7 @@ export default function Home() {
               {messages.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-center">
                   <h2 className="mb-8 text-3xl font-normal text-slate-800">开始创建你的演示文稿</h2>
-                  <ChatInput onSend={handleSend} disabled={isLoading} />
+                  <ChatInput onSend={handleSend} disabled={isLoading} className="max-w-[680px]" />
                 </div>
               ) : (
                 <ChatArea messages={messages} isLoading={isLoading} />
@@ -427,7 +427,7 @@ export default function Home() {
             </div>
             {messages.length > 0 && (
               <div className="shrink-0 px-6 pb-6">
-                <ChatInput onSend={handleSend} disabled={isLoading} />
+                <ChatInput onSend={handleSend} disabled={isLoading} className="max-w-[680px]" />
               </div>
             )}
           </div>

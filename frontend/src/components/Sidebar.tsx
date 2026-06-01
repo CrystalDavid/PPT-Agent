@@ -7,6 +7,7 @@ import {
   Check,
   Download,
   FileSearch,
+  Home,
   LayoutGrid,
   ListTree,
   MessageSquareText,
@@ -20,16 +21,17 @@ interface StepConfig {
   label: string;
   icon: LucideIcon;
   color: string;
+  mutedColor: string;
   active: string;
 }
 
 const steps: StepConfig[] = [
-  { key: 'interview', label: '需求访谈', icon: MessageSquareText, color: 'text-blue-600', active: 'bg-blue-50 text-blue-700' },
-  { key: 'brief', label: '调研底稿', icon: FileSearch, color: 'text-emerald-600', active: 'bg-emerald-50 text-emerald-700' },
-  { key: 'outline', label: '大纲', icon: ListTree, color: 'text-amber-600', active: 'bg-amber-50 text-amber-700' },
-  { key: 'planning', label: '策划稿', icon: LayoutGrid, color: 'text-violet-600', active: 'bg-violet-50 text-violet-700' },
-  { key: 'render', label: 'SVG 预览', icon: MonitorPlay, color: 'text-cyan-600', active: 'bg-cyan-50 text-cyan-700' },
-  { key: 'export', label: '导出交付', icon: Download, color: 'text-rose-600', active: 'bg-rose-50 text-rose-700' },
+  { key: 'interview', label: '需求访谈', icon: MessageSquareText, color: 'text-sky-600', mutedColor: 'text-sky-300', active: 'bg-sky-50 text-sky-700' },
+  { key: 'brief', label: '调研底稿', icon: FileSearch, color: 'text-emerald-600', mutedColor: 'text-emerald-300', active: 'bg-emerald-50 text-emerald-700' },
+  { key: 'outline', label: '大纲', icon: ListTree, color: 'text-amber-600', mutedColor: 'text-amber-300', active: 'bg-amber-50 text-amber-700' },
+  { key: 'planning', label: '策划稿', icon: LayoutGrid, color: 'text-violet-600', mutedColor: 'text-violet-300', active: 'bg-violet-50 text-violet-700' },
+  { key: 'render', label: 'SVG 预览', icon: MonitorPlay, color: 'text-cyan-600', mutedColor: 'text-cyan-300', active: 'bg-cyan-50 text-cyan-700' },
+  { key: 'export', label: '导出交付', icon: Download, color: 'text-rose-600', mutedColor: 'text-rose-300', active: 'bg-rose-50 text-rose-700' },
 ];
 
 interface SidebarProps {
@@ -48,15 +50,15 @@ const iconMotion = {
   rest: { y: 0 },
   hover: {
     y: [0, -4, 2, -3, 0],
-    transition: { duration: 0.46, ease: 'easeOut' },
+    transition: { duration: 0.48, ease: 'easeOut' },
   },
 };
 
 const textMotion = {
   rest: { y: 0 },
   hover: {
-    y: [0, -2, 1, -2, 0],
-    transition: { duration: 0.42, ease: 'easeOut' },
+    y: [0, -3, 0],
+    transition: { duration: 0.34, ease: 'easeOut' },
   },
 };
 
@@ -93,27 +95,28 @@ export default function Sidebar({
 
   return (
     <motion.aside
-      animate={{ width: collapsed ? 72 : 248 }}
-      transition={{ duration: 0.22, ease: 'easeOut' }}
+      initial={false}
+      animate={{ width: collapsed ? 88 : 340 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className="relative flex h-screen shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white"
     >
-      <div className={`flex h-24 items-center ${collapsed ? 'justify-center px-3' : 'justify-between px-5'}`}>
+      <div className={`flex h-24 items-center ${collapsed ? 'justify-center px-3' : 'justify-between px-6'}`}>
         {collapsed ? (
           <button
             type="button"
             onClick={onToggleCollapsed}
             onMouseEnter={() => setBrandHover(true)}
             onMouseLeave={() => setBrandHover(false)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-lg font-semibold text-slate-900 transition-colors hover:bg-slate-100 hover:text-blue-600"
+            className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl font-semibold text-slate-900 transition-colors hover:bg-slate-100 hover:text-blue-600"
             title="展开侧边栏"
           >
-            {brandHover ? <span className="text-base">›</span> : 'P'}
+            {brandHover ? <span className="text-3xl leading-none">›</span> : 'P'}
           </button>
         ) : (
           <>
-            <div>
-              <h1 className="text-lg font-semibold leading-tight text-slate-900">PPT Agent</h1>
-              <p className="mt-1 text-xs text-slate-400">v2026.6.1</p>
+            <div className="min-w-0 whitespace-nowrap">
+              <h1 className="text-2xl font-semibold leading-tight text-slate-900">PPT Agent</h1>
+              <p className="mt-1 text-sm text-slate-400">v2026.6.1</p>
             </div>
             <button
               type="button"
@@ -127,12 +130,13 @@ export default function Sidebar({
         )}
       </div>
 
-      <nav className={`flex-1 space-y-1.5 ${collapsed ? 'px-2.5 py-2' : 'px-3 py-2'}`}>
+      <nav className={`flex-1 space-y-1.5 ${collapsed ? 'px-3 py-2' : 'px-4 py-2'}`}>
         {steps.map((step) => {
           const Icon = step.icon;
           const active = activePanel === step.key;
           const unlocked = isUnlocked(step.key);
           const done = isDone(step.key);
+          const iconColor = unlocked ? step.color : step.mutedColor;
 
           return (
             <motion.button
@@ -150,15 +154,15 @@ export default function Sidebar({
                   ? step.active
                   : unlocked
                     ? 'text-slate-600 hover:bg-slate-100'
-                    : 'cursor-not-allowed text-slate-300'
+                    : 'cursor-not-allowed text-slate-400'
               }`}
             >
-              <motion.span variants={iconMotion} className={`flex shrink-0 items-center justify-center ${unlocked ? step.color : 'text-slate-300'}`}>
+              <motion.span variants={iconMotion} className={`flex shrink-0 items-center justify-center ${active ? step.color : iconColor}`}>
                 <Icon size={22} strokeWidth={2.05} />
               </motion.span>
 
               {!collapsed && (
-                <motion.span variants={textMotion} className="text-sm font-normal">
+                <motion.span variants={textMotion} className="whitespace-nowrap text-sm font-normal">
                   {step.label}
                 </motion.span>
               )}
@@ -173,6 +177,19 @@ export default function Sidebar({
           );
         })}
       </nav>
+
+      <div className={`${collapsed ? 'px-3' : 'px-4'} pb-5`}>
+        <a
+          href="https://crystaldavid.github.io/"
+          className={`group flex h-11 items-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-blue-600 ${
+            collapsed ? 'justify-center' : 'gap-3 px-4'
+          }`}
+          title="返回主页"
+        >
+          <Home size={21} strokeWidth={2.05} />
+          {!collapsed && <span className="whitespace-nowrap text-sm font-normal">主页</span>}
+        </a>
+      </div>
     </motion.aside>
   );
 }
