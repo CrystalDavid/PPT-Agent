@@ -1,9 +1,9 @@
 /**
  * 第四阶段：SVG 页面渲染 Prompt
  *
- * 思路借鉴 ppt-master：AI 生成可读、可审查的 SVG 设计稿，再由工程侧转换为
- * PowerPoint 原生 DrawingML 对象。这里强约束 SVG 子集，避免 HTML/CSS 进入 PPTX
- * 后出现乱码、堆叠、不可编辑或整页截图的问题。
+ * AI 生成可读、可审查的 SVG 设计稿，再由工程侧转换为 PowerPoint 原生
+ * DrawingML 对象。这里强约束 SVG 子集，避免 HTML/CSS 进入 PPTX 后出现
+ * 乱码、堆叠、不可编辑或整页截图的问题。
  */
 
 const SVG_RULES = `## 输出格式

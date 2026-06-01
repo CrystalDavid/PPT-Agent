@@ -1,8 +1,7 @@
 /**
  * PPT Agent 访谈阶段 Prompt 模板
  *
- * 复用自 ppt-agent-workflow-san/ppt-workflow/references/prompts.md
- * 并针对"动态搜索 + 专家访谈"流程做了适配
+ * 面向 PPT Agent 的动态搜索 + 专家访谈流程。
  */
 
 // 通用格式约束（所有对话类 prompt 共用）
@@ -118,7 +117,6 @@ ${FORMAT_RULES}`;
 
 // ============================================================
 // 步骤 1.5：生成调研底稿 (Research Brief)
-// 复用自 ppt-agent-workflow-san prompts.md 第 1 节
 // ============================================================
 const RESEARCH_BRIEF_SYSTEM = `你是一名演示文稿前期研究员。你的任务不是直接写 PPT，而是为后续 PPT 生成提供可靠的调研底稿。
 

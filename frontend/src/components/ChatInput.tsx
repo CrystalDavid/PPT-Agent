@@ -45,9 +45,9 @@ export default function ChatInput({ onSend, disabled, className = '' }: ChatInpu
       onSubmit={handleSubmit}
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`mx-auto w-full max-w-2xl ${className}`}
+      className={`mx-auto w-full max-w-xl ${className}`}
     >
-      <div className="flex items-end gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-2.5 shadow-sm transition-all focus-within:border-blue-300 focus-within:shadow-md">
+      <div className="flex items-end gap-3 rounded-full border border-slate-200 bg-white px-5 py-2 shadow-sm transition-all focus-within:border-blue-300 focus-within:shadow-md">
         <textarea
           ref={textareaRef}
           value={value}
@@ -55,7 +55,7 @@ export default function ChatInput({ onSend, disabled, className = '' }: ChatInpu
           onKeyDown={handleKeyDown}
           placeholder="输入你的演示文稿主题吧~"
           rows={1}
-          className="max-h-[160px] min-h-[30px] flex-1 resize-none overflow-y-auto bg-transparent py-1 text-[17px] leading-7 text-slate-700 outline-none placeholder:text-slate-400"
+          className="max-h-[150px] min-h-[28px] flex-1 resize-none overflow-y-auto bg-transparent py-1 text-[17px] leading-7 text-slate-700 outline-none placeholder:text-slate-400"
           disabled={disabled}
         />
         <button

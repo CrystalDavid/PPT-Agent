@@ -96,8 +96,8 @@ export default function Sidebar({
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 88 : 340 }}
-      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      animate={{ width: collapsed ? 88 : 300 }}
+      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
       className="relative flex h-screen shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white"
     >
       <div className={`flex h-24 items-center ${collapsed ? 'justify-center px-3' : 'justify-between px-6'}`}>

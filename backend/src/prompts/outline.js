@@ -1,6 +1,5 @@
 /**
  * 第二阶段：大纲生成 Prompt
- * 复用自 ppt-agent-workflow-san/ppt-workflow/references/prompts.md 第 2 节
  */
 
 const OUTLINE_SYSTEM = `# Role: 顶级的PPT结构架构师
