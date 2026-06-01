@@ -71,6 +71,27 @@ export interface ExportResponse {
   downloadUrl: string;
 }
 
+export interface SessionState {
+  id: string;
+  stage?: string;
+  interviewStep?: number;
+  topic?: string;
+  messages?: unknown[];
+  context?: Record<string, unknown>;
+  brief?: Record<string, unknown> | null;
+  outline?: Record<string, unknown> | null;
+  planning?: Record<string, unknown> | null;
+  renderedPages?: RenderedPage[];
+  createdAt?: number;
+  importedAt?: number | null;
+}
+
+export interface SessionImportResponse {
+  sessionId: string;
+  stage: string;
+  session: SessionState;
+}
+
 export async function sendMessage(sessionId: string | null, message: string): Promise<ChatResponse> {
   const res = await fetchWithRetry(`${API}/chat`, {
     method: 'POST',
@@ -233,6 +254,32 @@ export async function exportPptx(sessionId: string): Promise<ExportResponse> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: '请求失败' }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function exportSession(sessionId: string): Promise<ExportResponse> {
+  const res = await fetchWithRetry(`${API}/session/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: '请求失败' }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function importSessionFile(payload: unknown): Promise<SessionImportResponse> {
+  const res = await fetchWithRetry(`${API}/session/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ payload }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: '请求失败' }));

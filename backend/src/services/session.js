@@ -1,18 +1,18 @@
 /**
- * 内存会话管理
- * 生产环境应替换为 Redis 或数据库
+ * In-memory session storage.
+ * Production deployments can replace this with Redis or a database.
  */
 
 const sessions = new Map();
 
-function createSession(id) {
-  const session = {
+function createBaseSession(id) {
+  return {
     id,
-    stage: 'interview',        // interview | outline | planning | render | export
-    interviewStep: 0,          // 0=初始, 1=场景锁定, 2=亮点挖掘, 3=边界确认, 4=底稿生成
+    stage: 'interview',
+    interviewStep: 0,
     topic: '',
-    messages: [],              // 完整对话历史
-    context: {                 // 访谈过程中收集的结构化信息
+    messages: [],
+    context: {
       topic: '',
       audience: '',
       purpose: '',
@@ -21,14 +21,19 @@ function createSession(id) {
       timeLimit: '',
       pageCount: '',
       materials: '',
-      broadSearch: '',         // 第一轮搜索结果
-      deepSearch: '',          // 第二轮搜索结果
+      broadSearch: '',
+      deepSearch: '',
     },
-    brief: null,               // 最终生成的调研底稿
+    brief: null,
     outline: null,
     planning: null,
+    renderedPages: [],
     createdAt: Date.now(),
   };
+}
+
+function createSession(id) {
+  const session = createBaseSession(id);
   sessions.set(id, session);
   return session;
 }
@@ -44,4 +49,54 @@ function updateSession(id, updates) {
   return session;
 }
 
-module.exports = { createSession, getSession, updateSession };
+function serializeSession(session) {
+  return {
+    id: session.id,
+    stage: session.stage || 'interview',
+    interviewStep: Number.isFinite(session.interviewStep) ? session.interviewStep : 0,
+    topic: session.topic || '',
+    messages: Array.isArray(session.messages) ? session.messages : [],
+    context: session.context && typeof session.context === 'object' ? session.context : {},
+    brief: session.brief || null,
+    outline: session.outline || null,
+    planning: session.planning || null,
+    renderedPages: Array.isArray(session.renderedPages) ? session.renderedPages : [],
+    createdAt: session.createdAt || Date.now(),
+    importedAt: session.importedAt || null,
+  };
+}
+
+function importSession(id, snapshot) {
+  const source = snapshot?.session || snapshot || {};
+  const base = createBaseSession(id);
+  const session = {
+    ...base,
+    stage: normalizeStage(source.stage),
+    interviewStep: Number.isFinite(source.interviewStep) ? source.interviewStep : base.interviewStep,
+    topic: typeof source.topic === 'string' ? source.topic : base.topic,
+    messages: Array.isArray(source.messages) ? source.messages : base.messages,
+    context: source.context && typeof source.context === 'object' ? source.context : base.context,
+    brief: source.brief || null,
+    outline: source.outline || null,
+    planning: source.planning || null,
+    renderedPages: Array.isArray(source.renderedPages) ? source.renderedPages : base.renderedPages,
+    createdAt: source.createdAt || base.createdAt,
+    importedAt: Date.now(),
+  };
+
+  sessions.set(id, session);
+  return session;
+}
+
+function normalizeStage(stage) {
+  const allowed = new Set(['interview', 'brief', 'outline', 'planning', 'render', 'export']);
+  return allowed.has(stage) ? stage : 'interview';
+}
+
+module.exports = {
+  createSession,
+  getSession,
+  updateSession,
+  serializeSession,
+  importSession,
+};

@@ -14,7 +14,7 @@ process.on('unhandledRejection', (err) => {
 });
 
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 // 对渲染接口设置长超时（5分钟）
 app.use('/api/workflow/render', (req, res, next) => {
