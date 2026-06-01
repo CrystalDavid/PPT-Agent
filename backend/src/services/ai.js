@@ -8,12 +8,14 @@ const API_KEY = process.env.DEEPSEEK_API_KEY;
 const MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
 
 async function chatCompletion(messages, options = {}) {
-  const { temperature = 0.7, maxTokens = 2048, retries = 4 } = options;
+  const { temperature = 0.7, maxTokens = 2048, retries = 4, timeoutMs = 120000 } = options;
+  let activeMaxTokens = maxTokens;
+  let tokenFallbackTried = false;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120000); // 2分钟超时
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
       const res = await fetch(`${BASE_URL}/chat/completions`, {
         method: 'POST',
@@ -25,7 +27,7 @@ async function chatCompletion(messages, options = {}) {
           model: MODEL,
           messages,
           temperature,
-          max_tokens: maxTokens,
+          max_tokens: activeMaxTokens,
           stream: false,
         }),
         signal: controller.signal,
@@ -35,6 +37,12 @@ async function chatCompletion(messages, options = {}) {
 
       if (!res.ok) {
         const err = await res.text();
+        if (res.status === 400 && !tokenFallbackTried && activeMaxTokens > 8192 && /token|max_tokens|maximum|context/i.test(err)) {
+          tokenFallbackTried = true;
+          activeMaxTokens = 8192;
+          console.warn('[AI] max_tokens rejected, retrying with 8192...');
+          continue;
+        }
         // 429 或 5xx 也可以重试
         if ((res.status === 429 || res.status >= 500) && attempt < retries) {
           const delay = Math.min(2000 * Math.pow(2, attempt), 15000);

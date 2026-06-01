@@ -8,6 +8,9 @@ const { chatCompletion } = require('./ai');
 const { RENDER_PAGE_SYSTEM, RENDER_MODIFY_SYSTEM } = require('../prompts/render');
 
 const OUTPUT_DIR = path.join(__dirname, '../../output');
+const RENDER_MAX_TOKENS = readPositiveInt(process.env.RENDER_MAX_TOKENS, 14000);
+const RENDER_REPAIR_MAX_TOKENS = readPositiveInt(process.env.RENDER_REPAIR_MAX_TOKENS, RENDER_MAX_TOKENS);
+const RENDER_AI_TIMEOUT_MS = readPositiveInt(process.env.RENDER_AI_TIMEOUT_MS, 300000);
 
 function ensureOutputDir() {
   if (!fs.existsSync(OUTPUT_DIR)) {
@@ -60,7 +63,7 @@ ${deckContext}
 当前策划卡片：
 ${JSON.stringify(page, null, 2)}`,
     },
-  ], { temperature: 0.48, maxTokens: 7000 });
+  ], { temperature: 0.48, maxTokens: RENDER_MAX_TOKENS, timeoutMs: RENDER_AI_TIMEOUT_MS, retries: 4 });
 
   const svg = await extractValidateOrRepair(raw, {
     mode: 'render',
@@ -110,7 +113,7 @@ async function modifyPage(session, pageNumber, instruction) {
       role: 'user',
       content: `当前页面 SVG：\n${existing.svg || htmlToSvg(existing.html)}\n\n用户修改要求：${instruction}`,
     },
-  ], { temperature: 0.35, maxTokens: 7000 });
+  ], { temperature: 0.35, maxTokens: RENDER_MAX_TOKENS, timeoutMs: RENDER_AI_TIMEOUT_MS, retries: 4 });
 
   const svg = await extractValidateOrRepair(raw, {
     mode: 'modify',
@@ -142,7 +145,7 @@ function buildDeckContext(session, pageNumber) {
 }
 
 async function extractValidateOrRepair(text, context) {
-  let svg = normalizeSvgTextBoxes(sanitizeSvg(extractSVG(text)));
+  let svg = await extractOrRegenerateSVG(text, context);
   let errors = validateSVG(svg);
   if (errors.length === 0) return svg;
   let hardErrors = errors.filter(error => !isSoftLayoutWarning(error));
@@ -166,9 +169,9 @@ ${svg}`;
   const repaired = await chatCompletion([
     { role: 'system', content: context.mode === 'modify' ? RENDER_MODIFY_SYSTEM : RENDER_PAGE_SYSTEM },
     { role: 'user', content: repairPrompt },
-  ], { temperature: 0.18, maxTokens: 7000, retries: 2 });
+  ], { temperature: 0.18, maxTokens: RENDER_REPAIR_MAX_TOKENS, timeoutMs: RENDER_AI_TIMEOUT_MS, retries: 2 });
 
-  svg = normalizeSvgTextBoxes(sanitizeSvg(extractSVG(repaired)));
+  svg = await extractOrRegenerateSVG(repaired, context);
   errors = validateSVG(svg);
   if (errors.length > 0) {
     hardErrors = errors.filter(error => !isSoftLayoutWarning(error));
@@ -177,6 +180,63 @@ ${svg}`;
     }
   }
   return svg;
+}
+
+async function extractOrRegenerateSVG(text, context) {
+  try {
+    return normalizeSvgTextBoxes(sanitizeSvg(extractSVG(text)));
+  } catch (error) {
+    if (!isIncompleteSvgError(error)) throw error;
+
+    const regenerated = await chatCompletion([
+      { role: 'system', content: context.mode === 'modify' ? RENDER_MODIFY_SYSTEM : RENDER_PAGE_SYSTEM },
+      { role: 'user', content: buildRegeneratePrompt(text, context) },
+    ], { temperature: 0.24, maxTokens: RENDER_REPAIR_MAX_TOKENS, timeoutMs: RENDER_AI_TIMEOUT_MS, retries: 2 });
+
+    return normalizeSvgTextBoxes(sanitizeSvg(extractSVG(regenerated)));
+  }
+}
+
+function buildRegeneratePrompt(previousOutput, context) {
+  if (context.mode === 'modify') {
+    return `上一次输出不是完整 SVG，可能被截断或缺少 </svg>。请重新输出完整 SVG，不要续写，不要解释。
+
+用户修改要求：${context.instruction || '按原要求修改'}
+
+原始 SVG：
+${context.originalSvg || ''}
+
+上一次不完整输出片段（只供参考，不要逐字续写）：
+${clipText(previousOutput, 6000)}`;
+  }
+
+  return `上一次输出不是完整 SVG，可能被截断或缺少 </svg>。请重新生成一个完整的 1280×720 SVG，不要 Markdown，不要解释。
+
+整体风格：${context.style || '现代专业风格'}
+
+全局上下文：
+${context.deckContext || ''}
+
+当前策划卡片：
+${JSON.stringify(context.page || {}, null, 2)}
+
+要求：
+- 必须从 <svg ...> 开始，以 </svg> 结束
+- 如果内容过多，减少装饰元素数量，但不要省略结束标签
+- 图标、标题、正文、标签必须在各自模块内对齐，不要乱飞
+
+上一次不完整输出片段（只供参考，不要逐字续写）：
+${clipText(previousOutput, 6000)}`;
+}
+
+function isIncompleteSvgError(error) {
+  return /完整 SVG|<\/svg>|<svg/i.test(String(error?.message || error || ''));
+}
+
+function clipText(value, maxLength) {
+  const text = String(value || '');
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}\n...`;
 }
 
 function extractSVG(text) {
@@ -191,6 +251,11 @@ function extractSVG(text) {
   if (svgMatch) return svgMatch[1].trim();
 
   throw new Error('AI 没有输出完整 SVG');
+}
+
+function readPositiveInt(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function sanitizeSvg(svg) {
